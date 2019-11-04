@@ -1,0 +1,158 @@
+---
+title: "Batch effect"
+author: "Eslam Osman"
+date: "7/25/2019"
+output: html_document
+---
+
+#Batch effect of different sequence runs
+
+```{r}
+require(dplyr)
+require(tidyr)
+require(readxl)
+```
+To call our data frame (after merging technical replicates of corals and seawater)
+```{r}
+# to name our dataframe handy names
+df <- read_excel("df.xlsx")
+Meta=df[,1:12]
+Mat=df[,13:8783]
+
+## to remove decimels from our dataframe 
+Mat=round(Mat, digits = 0)
+
+
+#### let's remove low reads below 1000 read per samples
+df1=df[rowSums(df[,13:8782])>1000,]
+Meta=df1[,1:12]
+Mat=df1[,13:8783]
+Mat=round(Mat, digits = 0)
+
+
+
+
+### sanity check
+sort(rowSums(Mat))
+
+
+
+```
+
+
+
+To visualize the coverage of samples in each run
+
+```{r}
+Meta$Run=factor(Meta$Run, levels = c("1","2","3"))
+boxplot(rowSums(Mat)~ df1$Run, col="lightgray", xlab = "Sequencing run", ylab = "Number of reads")
+```
+
+To test the significance between the number of reads per sample for each patch
+
+```{r}
+hist(rowSums(Mat))
+
+```
+
+
+
+
+```{r}
+shapiro.test(log10(rowSums(Mat)))
+```
+
+
+
+
+Data is not normally distributed and instead of using non-parametric test, we will use generalized linear model that does not assume data normality and can deal with non-parametric data. 
+```{r}
+
+batch_effect=glm(rowSums(Mat) ~ factor(Meta$Run))
+summary(batch_effect)
+
+## The out come showes that Run two was not significantly different from run 1, but both Run 1&2 were significatly differnt from Run 3. This is ok beacuse Run 3 has only water samples.
+
+
+```
+
+
+Some summary about the each patch
+```{r}
+# Patch 1
+Run_1=df1[which(df$Run=="1"),]  #113 samples
+Run_1_sum=sum(Run_1[,13:8783])  #809569 reads for all reads
+
+Run_1_Callo=df1[which(df1$Run=="1" & df1$Species=="Callogorgia_delta"),] # 61 sampels
+Run_1_Sedi=df1[which(df1$Run=="1" & df1$Species=="Sediment"),] # 30 samples
+Run_1_Para=df1[which(df1$Run=="1" & df1$Species=="Paramuricea_sp._B3"),] # 22 samples
+
+
+# Patch 2
+Run_2=df1[which(df1$Run=="2"),] #40 samples
+Run_2_sum=sum(Run_2[,13:8783])#281318.2 reads
+
+Run_2_Callo=df1[which(df1$Run=="2" & df1$Species=="Callogorgia_delta"),] # 23 sampels
+Run_2_Sedi=df1[which(df1$Run=="2" & df1$Species=="Sediment"),] # 15 samples
+Run_2_Para=df1[which(df1$Run=="2" & df1$Species=="Paramuricea_sp._B3"),] # 2 samples
+
+
+
+# Patch 3 (only seawater)
+Run_3=df1[which(df1$Run=="3"),] #29 samples all of them ar seawater
+Run_3_sum=sum(Run_3[,13:8783]) #631989.5 reads
+
+Run_3_row=rowSums(Run_3[,13:8783])
+range(rowSums(Run_3[,13:8783]))  # form 15473 to 36856 reads per sampels
+```
+
+
+# Batch effect of using different methods of collecting Seawater
+
+```{R}
+# to see how reads of seawater sampels looks loke
+
+barplot(rowSums(Run_3[,13:8783]), ylab = "number of reads")
+
+
+```
+
+Bar plot showes the number of reads are quite similar across samples and this seems ok, but let's see how it varies between years that happen and 2015 was differnt in seawater collection.
+
+
+
+```{r}
+
+boxplot(Run_3_row ~ factor(Run_3$Year), ylab = "number of reads", xlab = "Years")
+
+```
+It seems like that 2015 has low sequance coverage commpared to 2016 & 2016. Please note here that 2015 has only three samples compared to 15 samples in 2017 and 11 samples in 2016
+
+```{r}
+# to see how normally distributed seawater samples are?
+hist(Run_3_row)
+```
+
+
+```{r}
+
+# to test normality
+shapiro.test(Run_3_row)  # data is not normal
+```
+
+
+```{r}
+#log transformation to make it normal
+shapiro.test(log(Run_3_row)) # now data is normally distribution 
+```
+
+
+```{r}
+Run_3$Year=factor(Run_3$Year, levels = c("2015", "2016", "2017"))
+
+summary(aov(log(Run_3_row) ~ Run_3$Year))
+
+TukeyHSD(aov(Run_3_row ~ Run_3$Year)) ## there is no significnce difffernce between years/methods, so we good. 
+
+```
+
