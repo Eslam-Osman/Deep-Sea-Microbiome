@@ -1,0 +1,525 @@
+---
+title: "Seep_Normality"
+author: "EO"
+date: "7/22/2019"
+output: html_document
+---
+
+data
+```{r}
+# to name our dataframe handy names
+require(readxl)
+df <- read_excel("Data/df_final.xlsx")
+
+df=df[rowSums(df[,29:8799])>1000,] # two samples less than 1000 read per sample were removed after this process
+Meta=df[,1:28]# to cut out metadata
+Mat=df[,29:8799]
+
+```
+
+
+
+#Non normalized matrix (i.e., raw counts)
+
+```{r}
+require(vegan)
+dist=vegdist(Mat, "bray") #To calculate the dissimilarity distance using Bray method
+
+PCoAValue=wcmdscale(dist, k=3, eig=TRUE)# To caluslate PCoA values getting first 3 componants
+eig=eigenvals(PCoAValue)# to calculate the eigenvalues 
+summary(eig)# to show and summarize eigenvalues
+```
+
+
+To Plot the PCoA
+```{r}
+PCoAValue=wcmdscale(dist, k=3) # we must re-run this code without eig=3 becuase R could not reconize it this way and can not transfare it into a dataframe 
+PCoAValue=as.data.frame(PCoAValue)  #To transfare it into a dataframe
+PCoAValue=cbind(PCoAValue, Meta)  #To import the variables
+
+
+require(ggplot2)
+ggplot(PCoAValue, aes(x= V1, y= V2, color=Species))+
+  geom_point(size=5, alpha=0.8)+
+  scale_shape_manual(values=c(1,15, 16, 17,18))+
+  theme_bw()+
+  scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
+  labs(x="PCoA1 (32.5%)",y="PCoA2 (12.4%)")+
+  stat_ellipse()
+```
+
+PCoA axis 1 vs 3
+```{r}
+ggplot(PCoAValue, aes(x= V1, y= V3, color=Species))+
+  geom_point(size=5, alpha=0.8)+
+  scale_shape_manual(values=c(1,15, 16, 17,18))+
+  theme_bw()+
+  scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
+  labs(x="PCoA1 (33%)",y="PCoA3 (12.1%)")+
+  stat_ellipse()
+```
+
+
+
+```{r}
+require(plot3D)
+scatter3D(PCoAValue$V1,PCoAValue$V2, PCoAValue$V3, pch = 19,alpha=0.8, cex=2, theta = 50, phi = 7, xlab="PCoA1", ylab="PCoA2", zlab="PCoA3", ticktype = "detailed", bty = "b2", colkey = F)
+```
+
+
+
+```{r}
+adonis2(dist ~ Seepage_level+Site+Year+Species, data=Meta, permutations=9999)
+```
+
+```{r}
+adonis2(dist ~ Seepage_level/Site/Year/Species, data=Meta, permutations=9999)
+```
+
+
+
+
+
+
+
+# Total Scaling Sum (TSS)/ relative abundance per sample
+
+```{r}
+Mat_perc=t(apply(Mat, 1, function(x)(x)*100/(sum(x))))  # To generate a proportions table for summarizing
+#rowSums(Mat_perc)   # sanity check to see all our rows equal 100
+
+Mat_perc=round(Mat_perc, digits = 0) # To remove decimal 
+```
+
+
+
+```{r}
+
+dist_perc=vegdist(Mat_perc, "bray") #To calculate the similarity distance using Bray method
+
+PCoAValue_perc=wcmdscale(dist_perc, k=3, eig=TRUE)
+eig_perc=eigenvals(PCoAValue_perc)
+summary(eig_perc)
+```
+
+
+
+```{r}
+PCoAValue_perc=wcmdscale(dist_perc, k=3) #To calculate PCoA values
+PCoAValue_perc=as.data.frame(PCoAValue_perc)  #To transfare it to data frame
+PCoAValue_perc=cbind(PCoAValue_perc, Meta)  #To import the variables
+
+
+ggplot(PCoAValue_perc, aes(x= V1, y= V2, color=Species))+
+  geom_point(size=5, alpha=0.8)+
+  scale_shape_manual(values=c(1,15, 16, 17,18))+
+  theme_bw()+
+  scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
+  labs(x="PCoA1 (32.5%)",y="PCoA2 (12.6%)")+
+  stat_ellipse()
+```
+
+PCoA axis 1 vs 3
+```{r}
+ggplot(PCoAValue_perc, aes(x= V1, y= V3, color=Species))+
+  geom_point(size=5, alpha=0.8)+
+  scale_shape_manual(values=c(1,15, 16, 17,18))+
+  theme_bw()+
+  scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
+  labs(x="PCoA1 (33%)",y="PCoA3 (11.3%)")+
+  stat_ellipse()
+```
+
+
+
+
+
+
+```{r}
+require(plot3D)
+scatter3D(PCoAValue_perc$V1,PCoAValue_perc$V2, PCoAValue_perc$V3, pch = 19,alpha=0.8, cex=2, theta = 50, phi = 7, xlab="PCoA1", ylab="PCoA2", zlab="PCoA3", ticktype = "detailed", bty = "b2", colkey = F)
+```
+
+
+```{r}
+adonis2(dist_perc ~ Seepage_level+Site+Year+Species, data=Meta, permutations=9999)
+```
+
+
+
+
+```{r}
+adonis2(dist ~ Seepage_level/Site/Year/Species, data=Meta, permutations=9999)
+```
+
+
+
+
+
+
+# Normalization using DESeq2 
+
+```{r}
+#Methods 2 using DESeq2 package
+
+#To download DESeq2 package
+#if (!requireNamespace("BiocManager", quietly = TRUE))
+    #install.packages("BiocManager")
+#BiocManager::install("DESeq2")
+
+
+require(DESeq2)
+require(tidyr)
+require(dplyr)
+
+## House keeping and data wrangling to be ready for normalization in DESeq2 package. 
+
+Mat_dds=Mat # let's call our original microbial matrix Mat_dds
+
+## it is imporatnt for DESeq2 to identify both matrixe and metadata by a common column 
+rownames(Mat_dds)=Meta$SampleID ## To give sample id as a row name for microbial matrix
+Mat_dds=t(Mat_dds) ## DESeq2 read matrix as genes/OTU in rows and sampels/library in column
+rownames(Meta)=Meta$SampleID ## idetify sample ID as row names in metadata to match our matrix. 
+
+ddsFullCountTable <- DESeqDataSetFromMatrix(countData = Mat_dds, # community Matrix
+                                            colData = Meta, # Metadata
+                                            design = ~1) # design ~1 means without spesific design.
+
+cts=estimateSizeFactors(ddsFullCountTable,
+                        type = "poscounts") # this deal with lot's of zero data in our dataset
+vsd=varianceStabilizingTransformation(cts, blind = T) # this actutal stransformation function
+Mat_2=assay(vsd) # this is to extact our normalized matrix from DESeq2 dataset
+Mat_2=t(as.data.frame(Mat_2)) ## to transform our data into our "normal" data frame to be used in "vegan" package
+
+Mat_2[Mat_2 < 0]=0  ### to remove negative values as this method use log transformation which produce lots of negative values because of zeros. 
+Mat_2=round(Mat_2,digits =0)
+
+
+######### ALTERNATIVE CODE #######
+#ddsFullCountTable <- DESeqDataSetFromMatrix(countData = Mat_dds, colData = Meta, design = ~1)
+#dds <- ddsFullCountTable[ rowSums(counts(ddsFullCountTable)) > 0, ]
+#cts <- counts(dds)
+#geoMeans <- apply(cts, 1, function(row) if (all(row == 0)) 0 else exp(mean(log(row[row != 0]))))
+#cts <- estimateSizeFactors(cts, geoMeans=geoMeans,locfunc = median)
+#vsd=varianceStabilizingTransformation(cts)
+
+
+```
+
+
+
+
+
+
+To plot PCoA to visulize how data is dispared in the space
+
+```{r}
+
+dist_2= vegdist(Mat_2, method = "bray") #To calculate the similarity distance using Bray method
+
+PCoAValue=wcmdscale(dist_2, k=3, eig=TRUE)
+eig=eigenvals(PCoAValue)
+summary(eig)
+```
+
+
+
+
+```{r}
+
+PCoAValue_2=wcmdscale(dist_2, k=3) #To calculate PCoA values
+PCoAValue_2=as.data.frame(PCoAValue_2)  #To transfare it to data frame
+PCoAValue1_2=cbind(PCoAValue_2, Meta)  #To import the variables
+
+
+ggplot(PCoAValue1_2, aes(x= V1, y= V2, color=Species))+
+  geom_point(size=5, alpha=0.8)+
+  scale_shape_manual(values=c(1,15, 16, 17,18))+
+  theme_bw()+
+  scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
+  labs(x="PCoA1 (21.7%)",y="PCoA2 (12.7%)")+
+  stat_ellipse()
+ 
+```
+
+
+```{r}
+ggplot(PCoAValue1_2, aes(x= V1, y= V3, color=Species))+
+  geom_point(size=5, alpha=0.8)+
+  scale_shape_manual(values=c(1,15, 16, 17,18))+
+  theme_bw()+
+  scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
+  labs(x="PCoA1 (21.7%)",y="PCoA3 (10.5%)")+
+  stat_ellipse()
+```
+
+
+
+```{r}
+require(plot3D)
+scatter3D(PCoAValue1_2$V1,PCoAValue1_2$V2, PCoAValue1_2$V3, pch = 19,alpha=0.8, cex=2, theta = 50, phi = 7, xlab="PCoA1", ylab="PCoA2", zlab="PCoA3", ticktype = "detailed", bty = "b2", colkey = F)
+```
+
+
+
+
+```{r}
+
+adonis2(dist_2 ~ Seepage_level+Site+Year+Species, data=Meta, permutations=9999)
+```
+
+
+
+```{r}
+adonis2(dist_2 ~ Seepage_level/Site/Year/Species, data=Meta, permutations=9999)
+```
+
+
+
+# Canonical rarefication
+
+
+1- rarefication to minimum number
+
+```{r}
+Mat_4=rrarefy(Mat, sample = 1128)# rarefy to our minimum sample which equal 1128
+
+dist_4_min=vegdist(Mat_4, "bray") #To calculate the similarity distance using Bray method
+
+PCoAValue_4_min_eig=wcmdscale(dist_4_min, k=3, eig=TRUE)
+eig_4_min=eigenvals(PCoAValue_4_min_eig)
+summary(eig_4_min)
+
+```
+
+
+
+
+```{r}
+PCoAValue_4_min=wcmdscale(dist_4_min, k=3) #To calculate PCoA values
+PCoAValue_4_min=as.data.frame(PCoAValue_4_min)  #To transfare it to data frame
+PCoAValue1_4_min=cbind(PCoAValue_4_min, Meta)  #To import the variables
+
+
+ggplot(PCoAValue1_4_min, aes(x= V1, y= V2, color=Species))+
+  geom_point(size=5, alpha=0.8)+
+  scale_shape_manual(values=c(1,15, 16, 17,18))+
+  theme_bw()+
+  scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
+  labs(x="PCoA1 (32.5%)",y="PCoA2 (12.3%)")+
+  stat_ellipse()
+
+```
+
+
+PCoA1 vs PCoA2
+
+```{r}
+ggplot(PCoAValue1_4_min, aes(x= V1, y= V3, color=Species))+
+  geom_point(size=5, alpha=0.8)+
+  scale_shape_manual(values=c(1,15, 16, 17,18))+
+  theme_bw()+
+  scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
+  labs(x="PCoA1 (32.5%)",y="PCoA3 (10.9%)")+
+  stat_ellipse()
+```
+
+3D plot
+```{r}
+scatter3D(PCoAValue1_4_min$V1,PCoAValue1_4_min$V2, PCoAValue1_4_min$V3, pch = 19,alpha=0.8, cex=2, theta = 25, phi = 25, xlab="PCoA1", ylab="PCoA2", zlab="PCoA3", ticktype = "detailed", bty = "b2", colkey = T)
+```
+
+
+
+
+
+```{r}
+adonis2(dist_4_min ~ Seepage_level+Site+Year+Species,data=Meta, permutations=9999)
+```
+
+
+```{r}
+adonis2(dist_4_min ~ Seepage_level/Site/Year/Species, data=Meta, permutations=9999)
+```
+
+
+
+
+
+
+
+
+2-Rarefication based on 10,000 reads, not to waste reads and then check how it differs from rarefication to the minimum
+```{r}
+Mat_4_large=rrarefy(Mat, sample = 10000)# rarefy to 10000 sample size
+
+dist_4_large=vegdist(Mat_4_large, "bray") #To calculate the similarity distance using Bray method
+
+PCoAValue_4_large_eig=wcmdscale(dist_4_large, k=3, eig=TRUE)
+eig_4_large=eigenvals(PCoAValue_4_large_eig)
+summary(eig_4_large)
+
+```
+
+
+To plot PCOA axis 1 vs 2
+```{r}
+PCoAValue_4_large=wcmdscale(dist_4_large, k=3) #To calculate PCoA values
+PCoAValue_4_large=as.data.frame(PCoAValue_4_large)  #To transfare it to data frame
+PCoAValue1_4_large=cbind(PCoAValue_4_large, Meta)  #To import the variables
+
+
+ggplot(PCoAValue1_4_large, aes(x= V1, y= V2, color=Species))+
+  geom_point(size=5, alpha=0.8)+
+  scale_shape_manual(values=c(1,15, 16, 17,18))+
+  theme_bw()+
+  scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
+  labs(x="PCoA1 (32.7%)",y="PCoA2 (12.4%)")+
+  stat_ellipse()
+```
+
+
+PCoA axis 1 vs 3
+```{r}
+ggplot(PCoAValue1_4_large, aes(x= V1, y= V3, color=Species))+
+  geom_point(size=5, alpha=0.8)+
+  scale_shape_manual(values=c(1,15, 16, 17,18))+
+  theme_bw()+
+  scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
+  labs(x="PCoA1 (32.7%)",y="PCoA2 (12.1%)")+
+  stat_ellipse()
+```
+
+
+
+
+3D plot
+```{r}
+scatter3D(PCoAValue1_4_large$V1,PCoAValue1_4_large$V2, PCoAValue1_4_large$V3, pch = 19,alpha=0.8, cex=2, theta = 25, phi = 25, xlab="PCoA1", ylab="PCoA2", zlab="PCoA3", ticktype = "detailed", bty = "b2", colkey = T)
+```
+
+
+
+
+```{r}
+adonis2(dist_4_large ~ Seepage_level+Site+Year+Species, data=Meta, permutations=9999)
+```
+
+
+```{r}
+adonis2(dist_4_min ~ Seepage_level/Site/Year/Species, data=Meta, permutations=9999)
+```
+
+
+
+
+
+
+# Scaled normalization to minimum value (similar to rarifaction of minimum value) 
+
+```{r}
+
+## this method use the following formula = min sample read * (each OTU/total)
+
+Mat_5= min(rowSums(Mat))*(Mat/rowSums(Mat))
+
+# Sanity check
+sort (rowSums(Mat_5))
+## now all our samples are normalized and each sample is equal to the minimum. 
+
+```
+
+
+```{r}
+dist_5=vegdist(Mat_5, "bray") #To calculate the similarity distance using Bray method
+
+PCoAValue_5_eig=wcmdscale(dist_5, k=3, eig=TRUE)
+eig_5=eigenvals(PCoAValue_5_eig)
+summary(eig_5)
+```
+
+
+
+```{r}
+PCoAValue_5=wcmdscale(dist_5, k=3) #To calculate PCoA values
+PCoAValue_5=as.data.frame(PCoAValue_5)  #To transfare it to data frame
+PCoAValue1_5=cbind(PCoAValue_5, Meta)  #To import the variables
+
+
+ggplot(PCoAValue1_5, aes(x= V1, y= V2, color=Species))+
+  geom_point(size=5, alpha=0.8)+
+  scale_shape_manual(values=c(1,15, 16, 17,18))+
+  theme_bw()+
+  scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
+  labs(x="PCoA1 (33.1%)",y="PCoA2 (12.7%)")+
+  stat_ellipse()
+```
+
+
+```{r}
+ggplot(PCoAValue1_5, aes(x= V1, y= V2, color=Species))+
+  geom_point(size=5, alpha=0.8)+
+  scale_shape_manual(values=c(1,15, 16, 17,18))+
+  theme_bw()+
+  scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
+  labs(x="PCoA1 (33.1%)",y="PCoA2 (12.3%)")+
+  stat_ellipse()
+
+```
+
+
+```{r}
+adonis2(dist_5 ~ Seepage_level/Site/Year/Species, data=Meta, permutations=9999)
+```
+
+
+
+
+#Presence/Absence data using Jaccrad dissmilarity method
+
+```{r}
+dist_binary=vegdist(Mat, "jaccard", binary = T)# binary = T means convert abundnat data into presence/absence data
+
+PCoAValue_binary=wcmdscale(dist_binary, k=3) #To calculate PCoA values
+PCoAValue_binary=as.data.frame(PCoAValue_binary)  #To transfare it to data frame
+PCoAValue1_binary=cbind(PCoAValue_binary, Meta)  #To import the variables
+
+
+ggplot(PCoAValue1_binary, aes(x= V1, y= V2, color=Species))+
+  geom_point(size=5, alpha=0.8)+
+  scale_shape_manual(values=c(1,15, 16, 17,18))+
+  theme_bw()+
+  scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
+  labs(x="PCoA1 (33.1%)",y="PCoA2 (12.7%)")+
+  stat_ellipse()
+
+
+```
+
+```{r}
+ggplot(PCoAValue1_binary, aes(x= V1, y= V3, color=Species))+
+  geom_point(size=5, alpha=0.8)+
+  scale_shape_manual(values=c(1,15, 16, 17,18))+
+  theme_bw()+
+  scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
+  labs(x="PCoA1 (33.1%)",y="PCoA2 (12.7%)")+
+  stat_ellipse()
+```
+
+
+```{r}
+scatter3D(PCoAValue1_binary$V1,PCoAValue1_binary$V2, PCoAValue1_binary$V3, pch = 19,alpha=0.8, cex=2, theta = 25, phi = 25, xlab="PCoA1", ylab="PCoA2", zlab="PCoA3", ticktype = "detailed", bty = "b2", colkey = F)
+```
+
+
+
+```{r}
+adonis2(dist_binary ~ Seepage_level+Site+Year+Species, data=Meta, strata=Seepiness, permutations=9999)
+```
+
+
+
+```{r}
+adonis2(dist_binary ~ Seepage_level/Site/Year/Species, data=Meta, strata=Seepiness, permutations=9999)
+```
+
