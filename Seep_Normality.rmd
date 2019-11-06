@@ -44,7 +44,7 @@ ggplot(PCoAValue, aes(x= V1, y= V2, color=Species))+
   scale_shape_manual(values=c(1,15, 16, 17,18))+
   theme_bw()+
   scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
-  labs(x="PCoA1 (32.5%)",y="PCoA2 (12.4%)")+
+  labs(x="PCoA1 (32.6%)",y="PCoA2 (12.1%)")+
   stat_ellipse()
 ```
 
@@ -55,7 +55,7 @@ ggplot(PCoAValue, aes(x= V1, y= V3, color=Species))+
   scale_shape_manual(values=c(1,15, 16, 17,18))+
   theme_bw()+
   scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
-  labs(x="PCoA1 (33%)",y="PCoA3 (12.1%)")+
+  labs(x="PCoA1 (32.6%)",y="PCoA3 (11.7%)")+
   stat_ellipse()
 ```
 
@@ -115,7 +115,7 @@ ggplot(PCoAValue_perc, aes(x= V1, y= V2, color=Species))+
   scale_shape_manual(values=c(1,15, 16, 17,18))+
   theme_bw()+
   scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
-  labs(x="PCoA1 (32.5%)",y="PCoA2 (12.6%)")+
+  labs(x="PCoA1 (33.4%)",y="PCoA2 (12.4%)")+
   stat_ellipse()
 ```
 
@@ -126,7 +126,7 @@ ggplot(PCoAValue_perc, aes(x= V1, y= V3, color=Species))+
   scale_shape_manual(values=c(1,15, 16, 17,18))+
   theme_bw()+
   scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
-  labs(x="PCoA1 (33%)",y="PCoA3 (11.3%)")+
+  labs(x="PCoA1 (33.4%)",y="PCoA3 (12.1%)")+
   stat_ellipse()
 ```
 
@@ -237,7 +237,7 @@ ggplot(PCoAValue1_2, aes(x= V1, y= V2, color=Species))+
   scale_shape_manual(values=c(1,15, 16, 17,18))+
   theme_bw()+
   scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
-  labs(x="PCoA1 (21.7%)",y="PCoA2 (12.7%)")+
+  labs(x="PCoA1 (21.5%)",y="PCoA2 (12.5%)")+
   stat_ellipse()
  
 ```
@@ -249,7 +249,7 @@ ggplot(PCoAValue1_2, aes(x= V1, y= V3, color=Species))+
   scale_shape_manual(values=c(1,15, 16, 17,18))+
   theme_bw()+
   scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
-  labs(x="PCoA1 (21.7%)",y="PCoA3 (10.5%)")+
+  labs(x="PCoA1 (21.5%)",y="PCoA3 (10.3%)")+
   stat_ellipse()
 ```
 
@@ -267,7 +267,7 @@ scatter3D(PCoAValue1_2$V1,PCoAValue1_2$V2, PCoAValue1_2$V3, pch = 19,alpha=0.8, 
 
 adonis2(dist_2 ~ Seepage_level+Site+Year+Species, data=Meta, permutations=9999)
 ```
-
+Indeed, this normalization method could not explain 45% of microbial variation, unlike other methods that expalined up to 70% of bacterial community. 
 
 
 ```{r}
@@ -306,7 +306,7 @@ ggplot(PCoAValue1_4_min, aes(x= V1, y= V2, color=Species))+
   scale_shape_manual(values=c(1,15, 16, 17,18))+
   theme_bw()+
   scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
-  labs(x="PCoA1 (32.5%)",y="PCoA2 (12.3%)")+
+  labs(x="PCoA1 (33.1%)",y="PCoA2 (12.2%)")+
   stat_ellipse()
 
 ```
@@ -320,7 +320,7 @@ ggplot(PCoAValue1_4_min, aes(x= V1, y= V3, color=Species))+
   scale_shape_manual(values=c(1,15, 16, 17,18))+
   theme_bw()+
   scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
-  labs(x="PCoA1 (32.5%)",y="PCoA3 (10.9%)")+
+  labs(x="PCoA1 (33.1%)",y="PCoA3 (10.7%)")+
   stat_ellipse()
 ```
 
@@ -374,7 +374,7 @@ ggplot(PCoAValue1_4_large, aes(x= V1, y= V2, color=Species))+
   scale_shape_manual(values=c(1,15, 16, 17,18))+
   theme_bw()+
   scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
-  labs(x="PCoA1 (32.7%)",y="PCoA2 (12.4%)")+
+  labs(x="PCoA1 (33.2%)",y="PCoA2 (12.2%)")+
   stat_ellipse()
 ```
 
@@ -386,7 +386,7 @@ ggplot(PCoAValue1_4_large, aes(x= V1, y= V3, color=Species))+
   scale_shape_manual(values=c(1,15, 16, 17,18))+
   theme_bw()+
   scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
-  labs(x="PCoA1 (32.7%)",y="PCoA2 (12.1%)")+
+  labs(x="PCoA1 (33.2%)",y="PCoA2 (11.9%)")+
   stat_ellipse()
 ```
 
@@ -451,7 +451,7 @@ ggplot(PCoAValue1_5, aes(x= V1, y= V2, color=Species))+
   scale_shape_manual(values=c(1,15, 16, 17,18))+
   theme_bw()+
   scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
-  labs(x="PCoA1 (33.1%)",y="PCoA2 (12.7%)")+
+  labs(x="PCoA1 (33.7%)",y="PCoA2 (12.7%)")+
   stat_ellipse()
 ```
 
@@ -462,10 +462,17 @@ ggplot(PCoAValue1_5, aes(x= V1, y= V2, color=Species))+
   scale_shape_manual(values=c(1,15, 16, 17,18))+
   theme_bw()+
   scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
-  labs(x="PCoA1 (33.1%)",y="PCoA2 (12.3%)")+
+  labs(x="PCoA1 (33.7%)",y="PCoA2 (12.1%)")+
   stat_ellipse()
 
 ```
+
+
+
+```{r}
+adonis2(dist_5 ~ Seepage_level+Site+Year+Species, data=Meta, permutations=9999)
+```
+
 
 
 ```{r}
