@@ -1,5 +1,5 @@
 ---
-title: "Batch effect"
+title: "patch effect"
 author: "Eslam Osman"
 date: "7/25/2019"
 output: html_document
@@ -12,30 +12,22 @@ require(dplyr)
 require(tidyr)
 require(readxl)
 ```
-To call our data frame (after merging technical replicates of corals and seawater)
+
+To import our data frame 
 ```{r}
-# to name our dataframe handy names
-df <- read_excel("df.xlsx")
-Meta=df[,1:12]
-Mat=df[,13:8783]
+#to name our dataframe handy names
 
-## to remove decimels from our dataframe 
-Mat=round(Mat, digits = 0)
+df <- read_excel("Data/df_final.xlsx")
 
 
-#### let's remove low reads below 1000 read per samples
-df1=df[rowSums(df[,13:8782])>1000,]
-Meta=df1[,1:12]
-Mat=df1[,13:8783]
-Mat=round(Mat, digits = 0)
-
-
+#### let's remove samples that have less than 1000 read per samples
+df=df[rowSums(df[,29:8799])>1000,] # two samples were removed after this process
+Meta=df[,1:28]# to cut out metadata
+Mat=df[,29:8799]# to cut out bacterial community matrix
 
 
 ### sanity check
 sort(rowSums(Mat))
-
-
 
 ```
 
@@ -44,55 +36,62 @@ sort(rowSums(Mat))
 To visualize the coverage of samples in each run
 
 ```{r}
-Meta$Run=factor(Meta$Run, levels = c("1","2","3"))
-boxplot(rowSums(Mat)~ df1$Run, col="lightgray", xlab = "Sequencing run", ylab = "Number of reads")
+
+Meta$Run=factor(Meta$Run, levels = c("1","2","3")) # to identify differnt patch as factors
+summary(Meta$Run)#patch 1 has 115 samples and patch 2 has 42, while patch 3 has 29 samples that include only seawater
+
+
+#To visualize the coverage of samples in each patch
+require(ggplot2)
+
+ggplot(df, aes(factor(df$Run), rowSums(Mat)))+
+  geom_violin(aes(fill=factor(df$Run)))+
+  geom_jitter(shape=16,alpha=0.4, position=position_jitter(0.2))+
+  geom_boxplot(width=0.07, alpha=0.5)+
+  theme_bw()+
+  labs(x="Patch number",y="Number of reads")
 ```
 
-To test the significance between the number of reads per sample for each patch
+To test the significance between the number of reads per sample for each patch, we should go first for normality test. 
 
 ```{r}
-hist(rowSums(Mat))
-
+shapiro.test(log10(rowSums(Mat))) # to check normality
 ```
-
-
-
-
-```{r}
-shapiro.test(log10(rowSums(Mat)))
-```
-
 
 
 
 Data is not normally distributed and instead of using non-parametric test, we will use generalized linear model that does not assume data normality and can deal with non-parametric data. 
 ```{r}
 
-batch_effect=glm(rowSums(Mat) ~ factor(Meta$Run))
+batch_effect=glm(rowSums(Mat) ~ factor(Meta$Run))# GLM
 summary(batch_effect)
 
-## The out come showes that Run two was not significantly different from run 1, but both Run 1&2 were significatly differnt from Run 3. This is ok beacuse Run 3 has only water samples.
-
+# Intercept which is patch number 1 is a significantly different here (which means it is significantly different from zero), but patch number 2 is not highlighting that that patch 2 does not vary significantly from the reference intercept (patch 1). Unlike patch 3 which is significantly different from the mean intercept.
 
 ```
+
+
+The outcome shows that patch 2 was not significantly different from patch 1, but both patches 1&2 were significantly different from patch 3. This is ok because Run 3 has only water samples which would not interfere with the analysis of other experiment components.
+
 
 
 Some summary about the each patch
 ```{r}
 # Patch 1
-Run_1=df1[which(df$Run=="1"),]  #113 samples
-Run_1_sum=sum(Run_1[,13:8783])  #809569 reads for all reads
+Run_1=df1[which(df$Run=="1"),]  #115 samples
+Run_1_sum=sum(Run_1[,29:8799])  #829591 reads for all reads
 
-Run_1_Callo=df1[which(df1$Run=="1" & df1$Species=="Callogorgia_delta"),] # 61 sampels
+Run_1_Callo=df1[which(df1$Run=="1" & df1$Species=="Callogorgia_delta"),] # 63 sampels
 Run_1_Sedi=df1[which(df1$Run=="1" & df1$Species=="Sediment"),] # 30 samples
 Run_1_Para=df1[which(df1$Run=="1" & df1$Species=="Paramuricea_sp._B3"),] # 22 samples
 
 
 # Patch 2
-Run_2=df1[which(df1$Run=="2"),] #40 samples
-Run_2_sum=sum(Run_2[,13:8783])#281318.2 reads
+Run_2=df1[which(df1$Run=="2"),] #42 samples
+Run_2_sum=sum(Run_2[,29:8799])#299827 reads
 
-Run_2_Callo=df1[which(df1$Run=="2" & df1$Species=="Callogorgia_delta"),] # 23 sampels
+
+Run_2_Callo=df1[which(df1$Run=="2" & df1$Species=="Callogorgia_delta"),] # 25 sampels
 Run_2_Sedi=df1[which(df1$Run=="2" & df1$Species=="Sediment"),] # 15 samples
 Run_2_Para=df1[which(df1$Run=="2" & df1$Species=="Paramuricea_sp._B3"),] # 2 samples
 
@@ -100,20 +99,22 @@ Run_2_Para=df1[which(df1$Run=="2" & df1$Species=="Paramuricea_sp._B3"),] # 2 sam
 
 # Patch 3 (only seawater)
 Run_3=df1[which(df1$Run=="3"),] #29 samples all of them ar seawater
-Run_3_sum=sum(Run_3[,13:8783]) #631989.5 reads
+Run_3_sum=sum(Run_3[,29:8799]) #633691 reads
 
-Run_3_row=rowSums(Run_3[,13:8783])
 range(rowSums(Run_3[,13:8783]))  # form 15473 to 36856 reads per sampels
 ```
 
 
-# Batch effect of using different methods of collecting Seawater
+# patch effect of using different methods of collecting Seawater
 
 ```{R}
 # to see how reads of seawater sampels looks loke
+Run_3=df1[which(df1$Run=="3"),]
+Run_3_row=rowSums(Run_3[,29:8799])
+range(Run_3_row)  # form 15473 to 36856 read per sampels
 
-barplot(rowSums(Run_3[,13:8783]), ylab = "number of reads")
 
+barplot(Run_3_row, ylab = "Number of reads", xlab = "Samples")
 
 ```
 
@@ -123,7 +124,15 @@ Bar plot showes the number of reads are quite similar across samples and this se
 
 ```{r}
 
-boxplot(Run_3_row ~ factor(Run_3$Year), ylab = "number of reads", xlab = "Years")
+
+
+
+ggplot(Run_3, aes(factor(Run_3$Year), Run_3_row))+
+  geom_violin(aes(fill=factor(Run_3$Year)))+
+  geom_jitter(shape=16,alpha=0.4, position=position_jitter(0.2))+
+  geom_boxplot(width=0.07, alpha=0.5)+
+  theme_bw()+
+  labs(x="Years",y="Number of reads")
 
 ```
 It seems like that 2015 has low sequance coverage commpared to 2016 & 2016. Please note here that 2015 has only three samples compared to 15 samples in 2017 and 11 samples in 2016
@@ -154,5 +163,12 @@ summary(aov(log(Run_3_row) ~ Run_3$Year))
 
 TukeyHSD(aov(Run_3_row ~ Run_3$Year)) ## there is no significnce difffernce between years/methods, so we good. 
 
+```
+
+
+
+```{r}
+water_patch=glm(log(Run_3_row) ~ Run_3$Year)
+summary(water_patch)
 ```
 
