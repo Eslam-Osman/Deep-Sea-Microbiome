@@ -5,14 +5,13 @@ date: "7/25/2019"
 output: html_document
 ---
 
-#Batch effect of different sequence runs
+#patch effect of different sequence runs
 
 ```{r}
 require(dplyr)
 require(tidyr)
 require(readxl)
 require(ggplot2)
-require()
 ```
 
 To import our data frame 
@@ -72,7 +71,7 @@ summary(batch_effect)
 ```
 
 
-The outcome shows that patch 2 was not significantly different from patch 1, but both patches 1&2 were significantly different from patch 3. This is ok because Run 3 has only water samples which would not interfere with the analysis of other experiment components.
+The outcome shows that patch 2 was not significantly different from patch 1, but both patches 1&2 were significantly different from patch 3. This is OK because Run 3 has only water samples which would not interfere with the analysis of other experiment components.
 
 
 
@@ -119,7 +118,7 @@ barplot(Run_3_row, ylab = "Number of reads", xlab = "Samples")
 
 ```
 
-Bar plot showes the number of reads are quite similar across samples and this seems ok, but let's see how it varies between years that happen and 2015 was differnt in seawater collection.
+Bar plot shows the number of reads are quite similar across samples and this seems OK, but let's see how it varies between years that happen and 2015 was different in seawater collection.
 
 
 
@@ -133,7 +132,7 @@ ggplot(Run_3, aes(factor(Run_3$Year), Run_3_row))+
   labs(x="Years",y="Number of reads")
 
 ```
-It seems like that 2015 has low sequance coverage commpared to 2016 & 2016. Please note here that 2015 has only three samples compared to 15 samples in 2017 and 11 samples in 2016
+It seems like that 2015 has low sequence coverage compared to 2016 & 2016. Please note here that 2015 has only three samples compared to 15 samples in 2017 and 11 samples in 2016
 
 ```{r}
 # to see how normally distributed seawater samples are?
