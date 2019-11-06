@@ -12,7 +12,6 @@ require(dplyr)
 require(tidyr)
 require(readxl)
 require(ggplot2)
-require()
 ```
 
 To import our data frame 
