@@ -154,6 +154,7 @@ shapiro.test(log(Run_3_row)) # now data is normally distribution
 
 
 ```{r}
+
 Run_3$Year=factor(Run_3$Year, levels = c("2015", "2016", "2017"))
 
 summary(aov(log(Run_3_row) ~ Run_3$Year))
