@@ -11,6 +11,8 @@ output: html_document
 require(dplyr)
 require(tidyr)
 require(readxl)
+require(ggplot2)
+require()
 ```
 
 To import our data frame 
@@ -42,7 +44,6 @@ summary(Meta$Run)#patch 1 has 115 samples and patch 2 has 42, while patch 3 has 
 
 
 #To visualize the coverage of samples in each patch
-require(ggplot2)
 
 ggplot(df, aes(factor(df$Run), rowSums(Mat)))+
   geom_violin(aes(fill=factor(df$Run)))+
@@ -124,9 +125,6 @@ Bar plot showes the number of reads are quite similar across samples and this se
 
 ```{r}
 
-
-
-
 ggplot(Run_3, aes(factor(Run_3$Year), Run_3_row))+
   geom_violin(aes(fill=factor(Run_3$Year)))+
   geom_jitter(shape=16,alpha=0.4, position=position_jitter(0.2))+
@@ -144,8 +142,8 @@ hist(Run_3_row)
 
 
 ```{r}
+# to test data normality
 
-# to test normality
 shapiro.test(Run_3_row)  # data is not normal
 ```
 
