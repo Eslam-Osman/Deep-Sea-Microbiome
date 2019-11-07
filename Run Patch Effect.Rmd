@@ -55,7 +55,7 @@ ggplot(df, aes(factor(df$Run), rowSums(Mat)))+
 To test the significance between the number of reads per sample for each patch, we should go first for normality test. 
 
 ```{r}
-shapiro.test(log10(rowSums(Mat))) # to check normality
+shapiro.test(log10(rowSums(Mat))) # to check data normality
 ```
 
 
