@@ -1,0 +1,371 @@
+---
+title: "Taxonomy profile"
+author: "E.O. Osman"
+date: "11/18/2019"
+output: html_document
+---
+
+
+# Microbime taxonomy profile
+
+
+
+
+```{r}
+require(readxl)       #import excel files
+require(ggplot2)      #plots and graphics
+require(scales)       #scale percentage to 100
+require(tidyr)        #data handling
+require(dplyr)        #data handling
+require(RColorBrewer) #To creat color vector
+require(jcolors)      #To creat color vector
+require(data.table)   #To organize data tables
+```
+
+
+
+```{r}
+## to import excel file
+df <- read_excel("Data/df_final.xlsx")
+Meta=df[,1:28]
+Mat=df[,29:8799]
+
+```
+
+
+
+
+We need first to normalize our count to relative proportion to standarize the sequance depth. 
+```{r}
+Mat_perc=t(apply(Mat, 1, function(x)(x)*100/(sum(x))))  # To generate a proportions table for summarizing
+#rowSums(Mat_perc)   # sanity check to see all our rows equal 100
+
+Mat_perc=round(Mat_perc, digits = 0) # To remove decimal 
+
+```
+
+
+
+Now, we start getting relative abundance of each coral species
+```{r}
+#Let's make a list that have microbial community for each coral species, seawater and sediment seperatly, and sort each matrixe based on total abundnace of ESVs from high to low abundant ESVs. 
+
+Mat_tax<-list()
+
+Mat_tax[[1]]<- Mat_perc[as.logical(Meta[,"Species"]=="Callogorgia_delta"),order(colSums(Mat_perc[as.logical(Meta[,"Species"]=="Callogorgia_delta"),]),decreasing=TRUE)] #the first element of this list is a matrix with only callo data but it is organized by otu abundance
+
+Mat_tax[[2]]<- Mat_perc[as.logical(Meta[,"Species"]=="Paramuricea_sp._B3"),order(colSums(Mat_perc[as.logical(Meta[,"Species"]=="Paramuricea_sp._B3"),]),decreasing=TRUE)] #the first element of this list is a matrix with only Paramuricea_sp._B3	 data but it is organized by otu abundance
+
+Mat_tax[[3]]<- Mat_perc[as.logical(Meta[,"Species"]=="Seawater"),order(colSums(Mat_perc[as.logical(Meta[,"Species"]=="Seawater"),]),decreasing=TRUE)] #the first element of this list is a matrix with only sediment data but it is organized by otu abundance
+
+
+Mat_tax[[4]]<- Mat_perc[as.logical(Meta[,"Species"]=="Sediment"),order(colSums(Mat_perc[as.logical(Meta[,"Species"]=="Sediment"),]),decreasing=TRUE)] #the first element of this list is a matrix with only sediment data but it is organized by otu abundance
+```
+
+
+
+
+
+Here, we calculate the realtive abundance of each OTU within each matrixe, and then sum all OTUs less than 0.5% and assign them as others.
+
+```{r}
+Mat_tax_comb<-Mat_tax
+Callo1<-colSums(Mat_tax[[1]])/sum(colSums(Mat_tax[[1]]))*100 # This to calculate relative abundnace of microbial community of Callogorgia only
+Mat_tax_comb[[1]]<-cbind(Mat_tax[[1]][,as.logical(Callo1>=0.5)],rowSums(Mat_tax[[1]][,as.logical(Callo1<1)]))
+colnames(Mat_tax_comb[[1]])[dim(Mat_tax_comb[[1]])[2]]<-"Other" # To assign rare taxa as "others" Catergory
+
+
+Para1<-colSums(Mat_tax[[2]])/sum(colSums(Mat_tax[[2]]))*100 # This to calculate relative abundnace of microbial community of Paramuracae only
+Mat_tax_comb[[2]]<-cbind(Mat_tax[[2]][,as.logical(Para1>=0.5)],rowSums(Mat_tax[[2]][,as.logical(Para1<1)]))
+colnames(Mat_tax_comb[[2]])[dim(Mat_tax_comb[[2]])[2]]<-"Other"
+
+
+water1<-colSums(Mat_tax[[3]])/sum(colSums(Mat_tax[[3]]))*100 # This to calculate relative abundnace of microbial community of seawater samples only
+Mat_tax_comb[[3]]<-cbind(Mat_tax[[3]][,as.logical(water1>=2.5)],rowSums(Mat_tax[[3]][,as.logical(water1<1)]))# Cut of at 2%
+colnames(Mat_tax_comb[[3]])[dim(Mat_tax_comb[[3]])[2]]<-"Other"
+
+
+Sedi1<-colSums(Mat_tax[[4]])/sum(colSums(Mat_tax[[4]]))*100 # This to calculate relative abundnace of microbial community of sediments only
+Mat_tax_comb[[4]]<-cbind(Mat_tax[[4]][,as.logical(Sedi1>=1.5)],rowSums(Mat_tax[[4]][,as.logical(Sedi1<1)]))
+colnames(Mat_tax_comb[[4]])[dim(Mat_tax_comb[[4]])[2]]<-"Other"
+
+
+###### sanity check and values needed for writing######
+#dim(Mat_tax_comb[[1]]) # data dimention and you can use 2 or 3 or 4 for paramuricea, Water and Sediment respectivly
+#colnames(Mat_tax_comb[[3]]) # to check the names of top abundant bacteria
+#head(Sedi1, n=7L) # to get the percentage of each OTU - n= 7 specify number of heads 
+```
+
+
+
+```{r}
+
+Callogorgia=filter(df, Species=="Callogorgia_delta") # n=88 samples
+Mat_Callo=Callogorgia[,29:8799]
+Meta_Callo=Callogorgia[,1:28]
+
+Paramuricea=filter(df, Species=="Paramuricea_sp._B3") # n=24 samples
+Mat_Paramuricea=Paramuricea[,29:8799]
+Meta_Paramuricea=Paramuricea[,1:28]
+
+Seawater=filter(df, Species=="Seawater") # n=29 samples
+Mat_Water=Seawater[,29:8799]
+Meta_Water=Seawater[,1:28]
+
+Sediment=filter(df, Species=="Sediment") # n=45 samples
+Mat_Sediment=Sediment[,29:8799]
+Meta_Sediment=Sediment[,1:28]
+
+```
+
+
+
+Let's combine each dataframe with its metadata
+```{r}
+
+## We have metadat for each species that we have subset it previously
+
+# This is to combine dataframe of each species with its metadata
+
+Callo_taxa<-cbind(Meta_Callo, as.data.frame(Mat_tax_comb[[1]])) ## 20 variables = 7 OTUs
+Para_taxa<-cbind(Meta_Paramuricea, as.data.frame(Mat_tax_comb[[2]])) ## 24 varibales = 11 OTUs
+Water_taxa<-cbind(Meta_Water, as.data.frame(Mat_tax_comb[[3]]))  ## 24 varibales = 11 OTUs
+Sedi_taxa<-cbind(Meta_Sediment, as.data.frame(Mat_tax_comb[[4]])) ## 20 varibales = 7 OTUs
+
+### this is to write thos datafarme and annotate missing taxonomy manually on excel
+#write.csv(Callo_taxa, "Callo_abun_taxa.csv")
+#write.csv(Para_taxa, "Para_abun_taxa.csv")
+#write.csv(Water_taxa, "Water_abun_taxa.csv")
+#write.csv(Sedi_taxa, "Sedi_abun_taxa.csv")
+
+###########
+## taxaonomy were edited for unknown bacteria manaually using Excel###
+###########
+```
+
+
+
+
+Read top taxa for each species, and get them ready for plotting
+```{r}
+
+Callo_taxa <- read_excel("Output/Taxonomy/Callo_abun_taxa.xlsx")
+Para_taxa <- read_excel("Output/Taxonomy/Para_abun_taxa.xlsx")
+Water_taxa <- read_excel("Output/Taxonomy/Water_abun_taxa.xlsx")
+Sedi_taxa <- read_excel("Output/Taxonomy/Sedi_abun_taxa.xlsx")
+
+
+## Change the formate to longtidunal to meet ggplot2 requirment
+Callo_taxa=gather(Callo_taxa, "Taxa", "OTU", 30:37)
+Para_taxa=gather(Para_taxa, "Taxa", "OTU", 30:40)
+Water_taxa=gather(Water_taxa, "Taxa", "OTU", 30:40)
+Sedi_taxa=gather(Sedi_taxa, "Taxa", "OTU", 30:36)
+Mat_Tax_final= rbind(Callo_taxa,Para_taxa,Water_taxa, Sedi_taxa) # to combind all dataframes together
+
+
+## seperate the taxonmy into phylum, class, etc, which gives you a power to choose the taxa level to plot
+Mat_Tax_final=separate(Mat_Tax_final, Taxa,
+           c("OTU_NUM","OTUs", "Kingdom", "Phylum", "Class", "Order", "Family", "genus"), sep=",")
+
+```
+
+
+
+
+**To plot taxonomic profile of Species** 
+```{r}
+# To creat a color scheme using two differnt methods
+
+##1
+# Set color values using library(RColorBrewer)
+n <- 60
+qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
+col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
+
+##2
+## Alternative color values using library(jcolors)
+j5<- jcolors("pal5")
+j6<-jcolors("pal6")
+j7<-jcolors("pal7")
+j9<-jcolors("pal9")
+colors<- c(j9,j5,j7,j6)
+colors <- rep(colors, 5)
+colors <-c(unname(colors))
+
+
+########
+
+unique(Mat_Tax_final$genus)# to identify the unique genus
+
+Mat_Tax_final$genus=factor(Mat_Tax_final$genus,
+                           levels = rev(c(" Mollicutes",
+                                          " Unclassified Bacteria", 
+                                          " Epsilon-proteobacterium",
+                                          " SUP05.cluster",
+                                          " Endozoicomonas",
+                                          " Spongiobacter sp.",
+                                          " Rhodospirillaceae",
+                                          " Candidatus.Xenohaliotis",
+                                          " Aquimarina",
+                                          " Formosa",
+                                          " Mycoplasma",
+                                          " Propionibacterium",
+                                          " Nitrosomonas",
+                                          " Alteromonas sp.",
+                                          " JL.ETNP.Y6",
+                                          " Marine.group.B",
+                                          " IheB2.23",
+                                          " SAR406",
+                                          " Halomonas sp.",
+                                          " Syntrophobacteraceae",
+                                          " BD7.8.marine.group",
+                                          " Desulfobulbus",
+                                          " JTB255.marine.benthic.group",
+                                          " Other")))
+
+
+```
+
+
+
+To plot taxonomic profile between **Species**
+```{r}
+
+ggplot(Mat_Tax_final, aes(factor(Species), fill=factor(genus)))+
+  geom_bar(aes(weight=OTU),position = "fill")+
+  theme_bw()+
+  scale_fill_manual(values=colors)+
+  theme(
+    axis.text.x=
+      element_text(
+        color = "black",
+        size=12,
+        angle=45,
+        hjust=.5,
+        vjust=.5))+
+  theme(
+    axis.text.y =
+      element_text(
+        colour="black",
+        size=12,
+        angle=0,
+        hjust=.5,
+        vjust=.5,
+        face="plain"))+
+  labs(x="",
+    y="Relative abundance (%)")+
+  theme(legend.text =
+      element_text(
+        colour="black",
+        size = 12,
+        face = "plain"))+
+  theme(
+    legend.title =
+      element_text(
+        colour="black",
+        size=12, 
+        face="plain"))+
+  theme(strip.text.x =
+          element_text(
+            size = 14), strip.background=element_blank())+
+  labs(fill="genus")+
+  guides(fill=guide_legend(ncol=1, reverse=TRUE))+
+  scale_y_continuous(labels = percent)
+  
+```
+
+
+
+To plot taxonomic profile between **Site**
+```{r}
+ggplot(Mat_Tax_final, aes(factor(Site), fill=factor(genus)))+
+  geom_bar(aes(weight=OTU),position = "fill")+
+  theme_bw()+
+  scale_fill_manual(values=colors)+
+  theme(
+    axis.text.x=
+      element_text(
+        color = "black",
+        size=12,
+        angle=45,
+        hjust=.5,
+        vjust=.5))+
+  theme(
+    axis.text.y =
+      element_text(
+        colour="black",
+        size=12,
+        angle=0,
+        hjust=.5,
+        vjust=.5,
+        face="plain"))+
+  labs(x="",
+    y="Relative abundance (%)")+
+  theme(legend.text =
+      element_text(
+        colour="black",
+        size = 12,
+        face = "plain"))+
+  theme(
+    legend.title =
+      element_text(
+        colour="black",
+        size=12, 
+        face="plain"))+
+  theme(strip.text.x =
+          element_text(
+            size = 14), strip.background=element_blank())+
+  labs(fill="genus")+
+  guides(fill=guide_legend(ncol=1, reverse=TRUE))+
+  scale_y_continuous(labels = percent)
+  
+```
+
+
+To plot taxonomic profile between **Site vs Years**
+```{r}
+ggplot(Mat_Tax_final, aes(factor(Species), fill=factor(genus)))+
+  geom_bar(aes(weight=OTU),position = "fill")+
+  theme_bw()+
+  scale_fill_manual(values=colors)+
+  facet_grid(Site ~ Year)+
+  theme(
+    axis.text.x=
+      element_text(
+        color = "black",
+        size=12,
+        angle=90,
+        hjust=.5,
+        vjust=.5))+
+  theme(
+    axis.text.y =
+      element_text(
+        colour="black",
+        size=12,
+        angle=0,
+        hjust=.5,
+        vjust=.5,
+        face="plain"))+
+  labs(x="",
+    y="Relative abundance (%)")+
+  theme(legend.text =
+      element_text(
+        colour="black",
+        size = 12,
+        face = "plain"))+
+  theme(
+    legend.title =
+      element_text(
+        colour="black",
+        size=12, 
+        face="plain"))+
+  theme(strip.text.x =
+          element_text(
+            size = 14), strip.background=element_blank())+
+  labs(fill="genus")+
+  guides(fill=guide_legend(ncol=1, reverse=TRUE))+
+  scale_y_continuous(labels = percent)
+  
+```
+
+
