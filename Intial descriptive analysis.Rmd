@@ -1,0 +1,401 @@
+---
+title: "Intial descriptive analysis"
+author: "E.O. Osman"
+date: "11/18/2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+
+
+This is a code to analyize bacterial composition associated with corals in seep vs non seep sites at Gulf of Maxico. This code is a step by step analysis to serve as a notebook for my code. you can find this code on github here
+
+Let’s get the data ready for our analysis.
+
+
+```{r}
+require(readxl)       #import excel files
+require(ggplot2)      #plots and graphics
+require(tidyr)        #data handling
+require(dplyr)        #data handling
+
+```
+
+
+
+
+```{r}
+## to import excel file
+df <- read_excel("Data/df_final.xlsx")
+Meta=df[,1:28]
+Mat=df[,29:8799]
+
+```
+
+
+
+Let's go for some summary stats about our reads
+```{r}
+# To get the total number of reads
+sum(Mat)  # total reads = 1745046
+
+
+# To get the reads per sample
+sampleSum=rowSums(Mat)
+summary(sampleSum)
+# Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#1128    3847    8823    9479   10674   36856   
+
+#To get the standard variation between samples
+sd(sampleSum)#6342
+
+# To check whether samples depth is normally distributed or not
+shapiro.test(sampleSum)  # non parametric even after several transformation trials
+#W = 0.86274, p-value = 6.14e-12
+
+
+sort(sampleSum)
+#51 sample has less 5000 read, 68 samples has >5000-1000 reads, 64 sample has >1000 reads
+# this means that we can't rarify at 5000 reads as it will be biased and neglecting about 30% of the samples without being rarfified. This requires rarifaction based on the minimum samples read (1128) which mean losing lots of valied reads, which is not quite good stratigy to normalize our samples here. Therefore, we will use relative proportion to normalize our data for downstream analysis (see Seep normality code for more details)
+
+```
+
+
+Here is histograme to viualize number of reads per sample
+```{r}
+hist(sampleSum, col = "gray", xlab = "Number of reads")
+
+```
+
+
+
+
+Let's go to check number of reads every coral species sperattly
+
+
+```{r}
+ggplot(df, aes(Species, rowSums(Mat)))+
+  geom_boxplot(aes(fill=Species))+
+  geom_jitter(shape=16,alpha=0.4, position=position_jitter(0.2))+
+  theme_bw()+
+  labs(y="Number of reads")+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+```
+
+
+To check the number of ESVs per each coral species, Seawater, and Sediment  
+```{r}
+df_binary= replace(Mat, Mat>0, 1) # to convert any value above 0 to 1 to count how many ESVs per samples
+summary (rowSums(df_binary))
+# Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#12.00   29.75   50.00  352.04  623.25 1681.00  
+
+
+ggplot(df, aes(Species, rowSums(df_binary)))+
+  geom_boxplot(aes(fill=Species))+
+  geom_jitter(shape=16,alpha=0.4, position=position_jitter(0.2))+
+  theme_bw()+
+  labs(y="Number of ESVs")+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+
+```
+
+
+
+##Let's subset each coral species. We will need this for Core analysis later.
+
+
+#*Callogorgia*
+```{r}
+Callogorgia=filter(df, Species=="Callogorgia_delta") # n=88 samples
+Mat_Callo=Callogorgia[,29:8799]
+Meta_Callo=Callogorgia[,1:28]
+
+
+summary(rowSums(Mat_Callo))
+#Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#4705    8304    9576    9412   10406   12554 
+sd(rowSums(Mat_Callo))# 1517
+
+
+
+ggplot(Callogorgia, aes(Site, rowSums(Mat_Callo)))+
+  geom_boxplot(aes(fill=Site))+
+  geom_jitter(shape=16,alpha=0.4, position=position_jitter(0.2))+
+  theme_bw()+labs(y="Number of reads")
+```
+
+
+
+
+```{r}
+Mat_Callo_binary=replace(Mat_Callo, Mat_Callo>0,1)
+summary(rowSums(Mat_Callo_binary))
+#Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#12.00   24.75   30.50   35.35   42.00  101.00
+
+sd(rowSums(Mat_Callo_binary))
+#16.71742
+
+
+# To calculate the total number of ESVs that exist in all samples
+ncol(Mat_Callo_binary[which(colSums(Mat_Callo_binary)>0)])
+
+```
+
+
+
+Callogorgia: Number of ESVs between **sites**  
+```{r}
+
+ggplot(Callogorgia, aes(Site, rowSums(Mat_Callo_binary)))+
+  geom_boxplot(aes(fill=Site))+
+  geom_jitter(shape=16,alpha=0.4, position=position_jitter(0.2))+
+  theme_bw()+
+  labs(y="Number of ESVs")
+  
+```
+
+Callogorgia: Number of ESVs between **Year** 
+```{r}
+ggplot(Callogorgia, aes(factor(Year), rowSums(Mat_Callo_binary)))+
+  geom_boxplot(aes(fill=factor(Year)))+
+  geom_jitter(shape=16,alpha=0.4, position=position_jitter(0.2))+
+  theme_bw()+
+  labs(y="Number of ESVs", x="Years")
+```
+
+
+
+Callogorgia: Number of ESVs between **Seepage_level** 
+```{r}
+
+
+ggplot(Callogorgia, aes(Seepage_level, rowSums(Mat_Callo_binary)))+
+  geom_boxplot(aes(fill=Seepage_level))+
+  geom_jitter(shape=16,alpha=0.4, position=position_jitter(0.2))+
+  theme_bw()+
+  labs(y="Number of ESVs")+
+  theme(
+    axis.text.x=
+      element_text(
+        color = "black",
+        size=10,
+        angle=45,
+        hjust=.5,
+        vjust=.5))
+```
+
+
+#Paramuricae sp_B3
+
+```{r}
+
+Paramuricea=filter(df, Species=="Paramuricea_sp._B3") # n=24 samples
+Mat_Paramuricea=Paramuricea[,29:8799]
+Meta_Paramuricea=Paramuricea[,1:28]
+
+summary(rowSums(Mat_Paramuricea))
+#Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#2399    7060    7572    7137    8706    9381
+
+sd(rowSums(Mat_Paramuricea)) #2150
+
+
+shapiro.test(rowSums(Mat_Paramuricea))
+#W = 0.83644, p-value = 0.001973
+
+hist(rowSums(Mat_Paramuricea))
+
+```
+
+
+
+```{r}
+ggplot(Paramuricea, aes(factor(Year), rowSums(Mat_Paramuricea)))+
+  geom_boxplot(aes(fill=factor(Year)))+
+  geom_jitter(shape=16,alpha=0.4, position=position_jitter(0.2))+
+  theme_bw()+
+  labs(y="Number of reads")
+```
+
+
+The variation of reads between years refers to number of samples where we have only 2 samples in 2017. 
+
+```{r}
+
+Mat_Para_binary=replace(Mat_Paramuricea, Mat_Paramuricea>0,1)
+summary(rowSums(Mat_Para_binary))
+#Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#18.00   28.50   37.50   40.05   52.00   73.00 
+
+sd(rowSums(Mat_Para_binary))
+#14.1
+
+# To calculate the total number of ESVs that exist in all samples
+ncol(Mat_Para_binary[which(colSums(Mat_Para_binary)>0)])
+#346
+```
+
+
+```{r}
+ggplot(Paramuricea, aes(factor(Seepage_level), rowSums(Mat_Para_binary)))+
+  geom_boxplot(aes(fill=factor(Seepage_level)))+
+  geom_jitter(shape=16,alpha=0.4, position=position_jitter(0.2))+
+  theme_bw()+
+  labs(y="Number of ESVs")+
+   theme(
+    axis.text.x=
+      element_text(
+        color = "black",
+        size=10,
+        angle=45,
+        hjust=.5,
+        vjust=.5))
+```
+
+
+
+Seawater
+
+```{r}
+Seawater=filter(df, Species=="Seawater") # n=29 samples
+Mat_Water=Seawater[,29:8799]
+Meta_Water=Seawater[,1:28]
+
+summary(rowSums(Mat_Water))
+# Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#15473   19180   21264   21851   23835   36856 
+
+sd(rowSums(Mat_Water))#4468
+
+shapiro.test(log(rowSums(Mat_Water))) # log normalized
+#W = 0.96685, p-value = 0.4779
+
+hist(rowSums(Mat_Water))
+```
+
+
+
+```{r}
+ggplot(Seawater, aes(factor(Site), rowSums(Mat_Water)))+
+  geom_boxplot(aes(fill=factor(Site)))+
+  geom_jitter(shape=16,alpha=0.4, position=position_jitter(0.2))+
+  theme_bw()+
+  labs(y="Number of reads")
+```
+
+
+```{r}
+Mat_water_binary=replace(Mat_Water, Mat_Water>0,1)
+summary(rowSums(Mat_water_binary))
+#Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+#683    1016    1219    1197    1420    1681
+
+sd(rowSums(Mat_water_binary))
+#264
+
+# To calculate the total number of ESVs that exist in all samples
+ncol(Mat_water_binary[which(colSums(Mat_water_binary)>0)])
+#4768
+```
+
+
+
+```{r}
+ggplot(Seawater, aes(factor(Site), rowSums(Mat_water_binary)))+
+  geom_boxplot(aes(fill=factor(Site)))+
+  geom_jitter(shape=16,alpha=0.4, position=position_jitter(0.2))+
+  theme_bw()+
+  labs(y="Number of reads")
+```
+
+
+```{r}
+ggplot(Seawater, aes(factor(Year), rowSums(Mat_water_binary)))+
+  geom_boxplot(aes(fill=factor(Year)))+
+  geom_jitter(shape=16,alpha=0.4, position=position_jitter(0.2))+
+  theme_bw()+
+  labs(y="Number of reads")
+```
+
+
+
+
+```{r}
+ggplot(Seawater, aes(factor(Seepage_level), rowSums(Mat_water_binary)))+
+  geom_boxplot(aes(fill=factor(Seepage_level)))+
+  geom_jitter(shape=16,alpha=0.4, position=position_jitter(0.2))+
+  theme_bw()+
+  labs(y="Number of reads")+
+  theme(
+    axis.text.x=
+      element_text(
+        color = "black",
+        size=10,
+        angle=45,
+        hjust=.5,
+        vjust=.5))
+```
+
+
+
+
+Sediment
+
+```{r}
+Sediment=filter(df, Species=="Sediment") # n=45 samples
+Mat_Sediment=Sediment[,29:8799]
+Meta_Sediment=Sediment[,1:28]
+
+summary(rowSums(Mat_Sediment))
+# Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+# 1128    2469    2805    2803    3265    4572   
+
+sd(rowSums(Mat_Sediment)) #652
+
+shapiro.test(rowSums(Mat_Sediment)) # Parametic data
+#W = 0.9775, p-value = 0.5221
+
+hist(rowSums(Mat_Sediment))
+```
+
+
+```{r}
+Mat_Sedi_binary=replace(Mat_Sediment, Mat_Sediment>0,1)
+summary(rowSums(Mat_Sedi_binary))
+# Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+# 278.0   537.0   597.0   579.5   647.0   792.0
+
+sd(rowSums(Mat_Sedi_binary))
+#99.48267
+
+# To calculate the total number of ESVs that exist in all samples
+ncol(Mat_Sedi_binary[which(colSums(Mat_Sedi_binary)>0)])
+#4021
+
+```
+
+
+
+```{r}
+ggplot(Sediment, aes(factor(Site), rowSums(Mat_Sedi_binary)))+
+  geom_boxplot(aes(fill=factor(Site)))+
+  geom_jitter(shape=16,alpha=0.4, position=position_jitter(0.2))+
+  theme_bw()+
+  labs(y="Number of reads")+
+  theme(
+    axis.text.x=
+      element_text(
+        color = "black",
+        size=10,
+        angle=45,
+        hjust=.5,
+        vjust=.5))
+```
+
