@@ -91,12 +91,20 @@ colnames(Mat_tax_comb[[4]])[dim(Mat_tax_comb[[4]])[2]]<-"Other"
 
 
 ###### sanity check and values needed for writing######
+
 #dim(Mat_tax_comb[[1]]) # data dimention and you can use 2 or 3 or 4 for paramuricea, Water and Sediment respectivly
 #colnames(Mat_tax_comb[[3]]) # to check the names of top abundant bacteria
-#head(Sedi1, n=7L) # to get the percentage of each OTU - n= 7 specify number of heads 
+#head(Sedi1, n=7L) # to get the percentage of each OTU - n= 7 specify number of heads
+#colMeans(Mat_tax_comb[[4]])# to calculate the mean value of each ESV across samples.
+#apply(Mat_tax_comb[[4]], 2, sd) # to calculate the SD of each ESV
 ```
 
 
+
+
+
+
+Let's subset each species separatly
 
 ```{r}
 
@@ -120,7 +128,7 @@ Meta_Sediment=Sediment[,1:28]
 
 
 
-Let's combine each dataframe with its metadata
+Let's combine each dataframe of each species with its metadata
 ```{r}
 
 ## We have metadat for each species that we have subset it previously
@@ -174,15 +182,14 @@ Mat_Tax_final=separate(Mat_Tax_final, Taxa,
 
 **To plot taxonomic profile of Species** 
 ```{r}
+
 # To creat a color scheme using two differnt methods
 
-##1
-# Set color values using library(RColorBrewer)
+##color scheme number 1 using library(RColorBrewer)
 n <- 60
 qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
 col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
 
-##2
 ## Alternative color values using library(jcolors)
 j5<- jcolors("pal5")
 j6<-jcolors("pal6")
@@ -195,7 +202,7 @@ colors <-c(unname(colors))
 
 ########
 
-unique(Mat_Tax_final$genus)# to identify the unique genus
+unique(Mat_Tax_final$genus)# to identify the unique genus to arrange them as factor
 
 Mat_Tax_final$genus=factor(Mat_Tax_final$genus,
                            levels = rev(c(" Mollicutes",
@@ -322,13 +329,12 @@ ggplot(Mat_Tax_final, aes(factor(Site), fill=factor(genus)))+
 ```
 
 
-To plot taxonomic profile between **Site vs Years**
+To plot taxonomic profile between **Seepage_level**
 ```{r}
-ggplot(Mat_Tax_final, aes(factor(Species), fill=factor(genus)))+
+ggplot(Mat_Tax_final, aes(factor(Seepage_level), fill=factor(genus)))+
   geom_bar(aes(weight=OTU),position = "fill")+
   theme_bw()+
   scale_fill_manual(values=colors)+
-  facet_grid(Site ~ Year)+
   theme(
     axis.text.x=
       element_text(
@@ -368,4 +374,49 @@ ggplot(Mat_Tax_final, aes(factor(Species), fill=factor(genus)))+
   
 ```
 
+
+To plot taxonomic profile between **Species ~ Site**
+
+```{r}
+ggplot(Mat_Tax_final, aes(factor(Seepage_level), fill=factor(genus)))+
+  geom_bar(aes(weight=OTU),position = "fill")+ facet_grid(Species ~ Site)+
+  theme_bw()+
+  scale_fill_manual(values=colors)+
+  theme(
+    axis.text.x=
+      element_text(
+        color = "black",
+        size=12,
+        angle=90,
+        hjust=.5,
+        vjust=.5))+
+  theme(
+    axis.text.y =
+      element_text(
+        colour="black",
+        size=12,
+        angle=0,
+        hjust=.5,
+        vjust=.5,
+        face="plain"))+
+  labs(x="",
+    y="Relative abundance (%)")+
+  theme(legend.text =
+      element_text(
+        colour="black",
+        size = 12,
+        face = "plain"))+
+  theme(
+    legend.title =
+      element_text(
+        colour="black",
+        size=12, 
+        face="plain"))+
+  theme(strip.text.x =
+          element_text(
+            size = 14), strip.background=element_blank())+
+  labs(fill="genus")+
+  guides(fill=guide_legend(ncol=1, reverse=TRUE))+
+  scale_y_continuous(labels = percent)
+```
 
