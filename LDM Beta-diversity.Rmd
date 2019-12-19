@@ -1,0 +1,1020 @@
+---
+title: "LDM Beta Diversity"
+author: "E.O. Osman"
+date: "12/19/2019"
+output: html_document
+---
+
+
+```{r}
+#install.packages("http://web1.sph.emory.edu/users/yhu30/LDM_1.0.tar.gz", repos = NULL, type = "source") # To install LDM package
+require(LDM)
+require(ggplot2)
+require(tidyr)
+require(dplyr)
+require(plotly)
+```
+
+
+To import data file
+```{r}
+df <- read.table("df_final.txt", header=TRUE, sep="\t")# This package gave error when using csv file, so txt file works fine
+Meta=df[,1:28]
+Mat=df[,29:8799]
+
+```
+
+
+
+We need first to normalize our count to relative proportion to standarize the sequance depth. 
+
+```{r}
+
+Mat_perc=t(apply(Mat, 1, function(x)(x)*100/(sum(x)))) # To generate a proportions table for summarizing
+#rowSums(Mat_perc)   # sanity check to see all our rows equal 100
+
+#Mat_perc=round(Mat_perc, digits = 0) # To remove decimal 
+
+df_perc=cbind(Meta,Mat_perc)
+
+```
+
+
+
+# Global Beta-diversity between all variables
+```{r}
+(seed=sample.int(100000, size=1)) # For reproducibility, use the number of permutation done by this seed number
+
+
+fit <- ldm(Mat_perc|(Preservation + # We use normalized df
+             Run+
+             Season+
+             ExtractionProcedure)~ # Here we identify the fixed effect
+             Species+
+             Site+
+             factor(Year)+
+             Seepage_level,
+           data=Meta,
+           dist.method="bray", # we used Bray Curtis method
+           test.global=TRUE, # To test the global hypothesis
+           test.otu=TRUE, # To test the differential abundnat taxa that contribute
+           n.rej.stop=100, 
+           fdr.nominal=0.1, 
+           seed=seed)
+
+
+
+# To obtain the p value for each fixed effect in order
+fit$p.global.omni # These values may vary slightly upon using differnt seed number
+#0.00019996 0.00019996 0.00019996 0.32740000
+
+
+
+# To obtain variance Explained by your fixed effect (same as R value in PERMANOVA)
+VE_submodels=sum(fit$VE.global.freq.submodels)
+VE_resi=sum(fit$VE.global.freq.residuals)
+VE_total=sum(VE_submodels+VE_resi)
+
+fit$VE.global.freq.submodels/VE_total*100
+#56.3747140  3.5124535  0.7080326  1.5368061
+
+
+
+# To get the ASVs that contribute significantly to drive variation between your variables
+
+
+# To get the ASVs varied between Species [1, ]
+w1 = which(fit$q.otu.omni[1,] < 0.1) 
+(n.otu.omni.var1 = length(w1)) #154 ASVs
+w1_Sp = colnames(fit$q.otu.omni)[w1] # To get ASVs names
+
+
+# To get the OTUS varied between Sites [2, ]
+w2 = which(fit$q.otu.omni[2,] < 0.1) 
+(n.otu.omni.var1 = length(w2)) #141 ASVs
+w2_Site= colnames(fit$q.otu.omni)[w2]
+
+
+# To get the OTUS varied between Years [3, ]
+w3 = which(fit$q.otu.omni[3,] < 0.1)
+(n.otu.omni.var1 = length(w3)) # 62 ASVs
+w3_Year= colnames(fit$q.otu.omni)[w3]
+
+
+# To get the OTUS varied between Seepage [4, ]
+w4 = which(fit$q.otu.omni[4,] < 0.1) 
+(n.otu.omni.var1 = length(w4))# Zero ASVs
+
+```
+
+
+##PERMANOVA FL
+To confirm the outcome provide by ldm function, we used PERMANOVA FL function implemented in LDM package
+```{r}
+
+res.permanova=permanovaFL(Mat_perc|(Preservation + Run+ Season + ExtractionProcedure)~ Meta$Species+Meta$Site+factor(Meta$Year)+Meta$Seepage_level, data=Meta, dist.method="bray",seed=seed)
+
+res.permanova$F.statistics
+#44.426609  4.569114  1.553259  2.319118
+res.permanova$p.permanova
+#0.00019996 0.00019996 0.00019996 0.14660000
+
+# This gave us similar results as LDM output. So, we have good confidence about LDM outcome
+
+```
+
+
+
+## adjusted distance matrix
+We need to produce distnce matrix after adusting the ASVs after adusting for confounders. So, we will using LDM package to do so. 
+```{r}
+adj.data=adjust.data.by.covariates(~Preservation + Run+ Season + ExtractionProcedure,
+                                   data=Meta, 
+                                   otu.table=Mat_perc, #Normalized data frame
+                                   dist.method="bray") #Bray Curtis
+
+PCs <- eigen(adj.data$adj.dist, symmetric=TRUE)
+
+PCs_df=as.data.frame(PCs$vectors[,1:3])# To get the first three axises
+
+PCs_df=cbind(PCs_df,Meta)
+
+
+ggplot(PCs_df, aes(V1, V2, color=Species, shape=factor(Year)))+
+  geom_point(size=5, alpha=0.8)+
+  stat_ellipse()+
+  scale_shape_manual(values=c(1,15, 16, 17,18))+
+  theme_bw()+
+  scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
+  labs(x="PCoA1 (XX%)",y="PCoA2 (XX%)")
+  
+```
+
+
+
+```{r}
+require(plotly)
+
+
+plot_ly(PCs_df, x=~V1, y=~V2, z=~V3, color = ~Species, colors = c('#d7191c','#fdae61','#abdda4','#2b83ba'))%>%
+  add_markers() %>%
+  layout(scene = list(xaxis = list(title = 'PCoA 1'),
+                     yaxis = list(title = 'PCoA 2'),
+                     zaxis = list(title = 'PCoA 3')))%>%
+  layout(scene = list(gridcolor = 'rgb(255, 255, 255)',
+                      zerolinewidth = 6,
+                      ticklen = 2,
+                      gridwidth = 5, alpha=0.7))
+```
+
+
+
+
+#Each Species Separately
+
+##Callogorgia_delta
+
+```{r}
+#To subset Callogorgia_delta from our data frame
+Callogorgia_perc=filter(df_perc, Species=="Callogorgia_delta") # n=88 samples
+Mat_Callo_perc=Callogorgia_perc[,29:8799]
+Meta_Callo_perc=Callogorgia[,1:28]
+
+```
+
+
+LDM model for Callogorgia
+```{r}
+(seed=sample.int(100000, size=1))
+
+fit_callo <- ldm(Mat_Callo_perc|(Preservation + Run+ Season )~ Meta_Callo_perc$Site +factor(Meta_Callo_perc$Year)+Meta_Callo_perc$Seepage_level, data=Meta_Callo_perc, dist.method="bray",test.global=TRUE, test.otu=TRUE, n.rej.stop=100, fdr.nominal=0.1, seed=seed)
+
+
+
+
+
+fit_callo$p.global.omni # To see p value of each of fixed effect in order
+#0.00019996 0.02040000 0.26480000
+
+
+VE_submodels_callo=sum(fit_callo$VE.global.freq.submodels)
+VE_resi_callo=sum(fit_callo$VE.global.freq.residuals)
+VE_total_callo=sum(VE_submodels_callo+VE_resi_callo)
+
+fit_callo$VE.global.freq.submodels/VE_total_callo*100
+#17.068729  5.822284  6.858965
+
+
+
+# Sites
+w1_callo = which(fit_callo$q.otu.omni[1,] < 0.1)
+w1_callo_Site= length(w1_callo)#14 ASVs
+(otu.omni.var1 = colnames(fit_callo$q.otu.omni)[w1_callo])
+
+
+#Years
+w2_callo = which(fit_callo$q.otu.omni[2,] < 0.1)
+w2_callo_Year = length(w2_callo)#4 ASVs
+(otu.omni.var1 = colnames(fit_callo$q.otu.omni)[w2_callo])
+
+
+# Seepage
+w3_callo = which(fit_callo$q.otu.omni[3,] < 0.1)
+w3_callo_Seep = length(w3_callo)# Zero
+
+```
+
+
+
+PERMANOVA-FL for Callogorgia
+```{R}
+
+
+callo.permanova=permanovaFL(Mat_Callo_perc|(Preservation + Run+ Season)~ Meta_Callo_perc$Site+factor(Meta_Callo_perc$Year)+Meta_Callo_perc$Seepage_level, data=Meta_Callo_perc, dist.method="bray",seed=seed)
+
+
+
+callo.permanova$F.statistics
+#5.242514 2.142787 2.889180
+callo.permanova$p.permanova
+#0.00019996 0.01040000 0.12560000
+```
+
+
+adjust.data.by.covariates for Callogorgia
+```{r}
+
+adj.data_callo=adjust.data.by.covariates(~Preservation + Run+ Season , data=Meta_Callo_perc, otu.table=Mat_Callo_perc, dist.method="bray")
+PCs_callo <- eigen(adj.data_callo$adj.dist, symmetric=TRUE)
+
+
+
+
+PCs_callo_df=as.data.frame(PCs_callo$vectors[,1:3])
+
+PCs_callo_df=cbind(PCs_callo_df,Meta_Callo_perc)
+
+
+ggplot(PCs_callo_df, aes(V1, V2, color=Site, shape=factor(Year)))+
+  geom_point(size=5, alpha=0.8)+
+  scale_shape_manual(values=c(1,15, 16, 17,18))+
+  theme_bw()+
+  scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
+  labs(x="PCoA1 (33.2%)",y="PCoA2 (12.1%)")+
+  stat_ellipse()
+
+```
+
+
+
+```{r}
+ggplot(PCs_callo_df, aes(V1, V2, color=Site, shape=factor(Year)))+
+  geom_point(size=5, alpha=0.9)+
+  scale_shape_manual(values=c(1,15, 16, 17,18))+
+  facet_wrap(Year~., scales = "free")+
+  theme_bw()+
+  scale_color_manual(values = c("#66c2a5", "#fc8d62","#8da0cb","#e78ac3"))+
+  labs(x="PCoA1 (33.2%)",y="PCoA2 (12.1%)")+
+  stat_ellipse()
+```
+
+
+
+##Paramuricea_sp._B3
+
+
+
+```{r}
+Paramuricea_perc=filter(df_perc, Species=="Paramuricea_sp._B3")
+Mat_Para_perc=Paramuricea_perc[,29:8799]
+Meta_Para_perc=Paramuricea_perc[,1:28]
+```
+
+
+
+
+```{r}
+(seed=sample.int(100000, size=1))
+
+fit_para <- ldm(Mat_Para_perc|(Season)~
+                  factor(Meta_Para_perc$Year)+
+                  Meta_Para_perc$Seepage_level,
+                data=Meta_Para_perc,
+                dist.method="bray",
+                test.global=TRUE,
+                test.otu=TRUE, 
+                n.rej.stop=100, 
+                fdr.nominal=0.1,
+                seed=seed)
+
+
+fit_para$p.global.omni # To see p value of each of fixed effect in order
+#0.0169966 0.5404000
+
+
+VE_submodels_para=sum(fit_para$VE.global.freq.submodels)
+VE_resi_para=sum(fit_para$VE.global.freq.residuals)
+VE_total_para=sum(VE_submodels_para+VE_resi_para)
+
+fit_para$VE.global.freq.submodels/VE_total_para*100
+#28.05510 17.50589
+
+
+
+
+w1_para = which(fit_para$q.otu.omni[1,] < 0.1)
+w1_para_Year = length(w1_para)
+(otu.omni.var1 = colnames(fit_para$q.otu.omni)[w1_para])
+
+
+w2_para = which(fit_para$q.otu.omni[2,] < 0.1)
+w2_para_Seep = length(w2_para)
+(otu.omni.var1 = colnames(fit_para$q.otu.omni)[w2_para])
+
+```
+
+
+
+
+
+PERMANOVA-FL for Paramuricea_sp._B3
+
+```{r}
+para.permanova=permanovaFL(Mat_Para_perc|(Season)~ 
+                             factor(Meta_Para_perc$Year)+
+                             Meta_Para_perc$Seepage_level,
+                           data=Meta_Para_perc,
+                           dist.method="bray",
+                           seed=seed)
+
+
+
+para.permanova$F.statistics # Something wrong here
+para.permanova$p.permanova
+#0.00019996 0.00019996
+```
+
+
+
+```{r}
+
+adj.data_para=adjust.data.by.covariates(~ Run+ Season , data=Meta_Para_perc, otu.table=Mat_Para_perc, dist.method="bray")
+PCs_para <- eigen(adj.data_para$adj.dist, symmetric=TRUE)
+
+
+
+PCs_para_df=as.data.frame(PCs_para$vectors[,1:3])
+
+PCs_para_df=cbind(PCs_para_df,Meta_Para_perc)
+
+
+ggplot(PCs_para_df, aes(V1, V2, color=factor(Year), shape=Seepage_level))+
+  geom_point(size=5, alpha=0.8)+stat_ellipse()+
+  theme_bw()+
+  scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
+  labs(x="XX",y="XX")
+  
+```
+
+
+
+
+##Seawater
+
+```{r}
+Seawater_perc=filter(df_perc, Species=="Seawater"&!Year=="2015") # We removed samples from 2015 because they are incomparable with the remaining years
+
+
+Mat_wat_perc=Seawater_perc[,29:8799] 
+Meta_wat_perc=Seawater_perc[,1:28]
+```
+
+
+
+```{r}
+(seed=sample.int(100000, size=1))
+
+fit_wat <- ldm(Mat_wat_perc|(Season+ExtractionProcedure)~
+                 Meta_wat_perc$Site+
+                 factor(Meta_wat_perc$Year)+
+                 Meta_wat_perc$Seepage_level,
+               data=Meta_wat_perc,
+               dist.method="bray",
+               test.global=TRUE,
+               test.otu=TRUE, 
+               n.rej.stop=100,
+               fdr.nominal=0.1,
+               seed=seed)
+
+
+fit_wat$p.global.omni # To see p value of each of fixed effect in order
+#0.00019996 0.73120000 0.99760000
+
+
+# To get variance explained
+VE_submodels_wat=sum(fit_wat$VE.global.freq.submodels)
+VE_resi_wat=sum(fit_wat$VE.global.freq.residuals)
+VE_total_wat=sum(VE_submodels_wat+VE_resi_wat)
+
+fit_wat$VE.global.freq.submodels/VE_total_wat*100
+#21.035980  4.561367 10.620429
+
+
+
+
+# To get ASVs that contribute in the variation
+
+w1_wat = which(fit_wat$q.otu.omni[1,] < 0.1)
+w1_wat_Site = length(w1_wat)#1046
+(otu.omni.var1 = colnames(fit_wat$q.otu.omni)[w1_wat])
+
+
+w2_wat = which(fit_wat$q.otu.omni[2,] < 0.1)
+w2_wat_Year = length(w2_wat)#27
+(otu.omni.var1 = colnames(fit_wat$q.otu.omni)[w2_wat])
+
+
+w3_wat = which(fit_wat$q.otu.omni[3,] < 0.1)
+w3_wat_Seep = length(w3_wat)#9
+(otu.omni.var1 = colnames(fit_wat$q.otu.omni)[w3_wat])
+
+```
+
+
+
+
+
+```{r}
+wat.permanova=permanovaFL(Mat_wat_perc|(Run+ Season)~
+                            Meta_wat_perc$Site+
+                            factor(Meta_wat_perc$Year)+
+                            Meta_wat_perc$Seepage_level,
+                          data=Meta_wat_perc,
+                          dist.method="bray",
+                          seed=seed)
+
+
+
+wat.permanova$F.statistics
+#3.7932728 0.4265253 0.8717140
+
+wat.permanova$p.permanova
+#0.00019996 0.58060000 0.99000000
+```
+
+
+
+```{r}
+
+adj.data_wat=adjust.data.by.covariates(~ Run+ Season , data=Meta_wat_perc, otu.table=Mat_wat_perc, dist.method="bray")
+PCs_wat <- eigen(adj.data_wat$adj.dist, symmetric=TRUE)
+
+
+
+PCs_wat_df=as.data.frame(PCs_wat$vectors[,1:3])
+
+PCs_wat_df=cbind(PCs_wat_df,Meta_wat_perc)
+
+
+ggplot(PCs_wat_df, aes(V1, V2, color=Site, shape=Seepage_level))+
+  geom_point(size=5, alpha=1)+stat_ellipse()+
+  scale_shape_manual(values=c(1,15, 16, 17,18, 19,20))+
+  theme_bw()+
+  scale_color_manual(values = c('#7fc97f','#beaed4','#fdc086','#ffff99','#386cb0','#f0027f','#bf5b17'))+
+  labs(x="PCoA1 (XX)",y="PCoA2 (XX)")
+```
+
+
+
+
+
+# Sediment
+
+```{r}
+Sediment_perc=filter(df_perc, Species=="Sediment")
+Mat_sedi_perc=Sediment_perc[,29:8799]
+Meta_sedi_perc=Sediment_perc[,1:28]
+```
+
+
+
+
+
+```{r}
+(seed=sample.int(100000, size=1))
+
+fit_sedi <- ldm(Mat_sedi_perc|(Run+ Season)~
+                  Meta_sedi_perc$Site+
+                  factor(Meta_sedi_perc$Year)+
+                  Meta_sedi_perc$Seepage_level,
+                data=Meta_sedi_perc,
+                dist.method="bray",
+                test.global=TRUE,
+                test.otu=TRUE,
+                n.rej.stop=100,
+                fdr.nominal=0.1,
+                seed=seed)
+
+
+
+
+
+fit_sedi$p.global.omni # To see p value of each of fixed effect in order
+#0.00019996 0.74180000 0.00359928
+
+
+
+VE_submodels_sedi=sum(fit_sedi$VE.global.freq.submodels)
+VE_resi_sedi=sum(fit_sedi$VE.global.freq.residuals)
+VE_total_sedi=sum(VE_submodels_sedi+VE_resi_sedi)
+
+fit_sedi$VE.global.freq.submodels/VE_total_sedi*100
+#10.377190  1.043147 14.12430
+
+
+
+
+####
+
+#ASVs that contribute significanly in the variation
+
+#Site
+w1_sedi = which(fit_sedi$q.otu.omni[1,] < 0.1)
+w1_sedi_Site = length(w1_sedi) # 371 ASVs
+(otu.omni.var1 = colnames(fit_sedi$q.otu.omni)[w1_sedi])
+
+
+
+#Year
+w2_sedi = which(fit_sedi$q.otu.omni[2,] < 0.1)
+w2_sedi_Year = length(w2_sedi) #6 ASVs
+(otu.omni.var1 = colnames(fit_sedi$q.otu.omni)[w2_sedi])
+
+
+
+#Seep
+w3_sedi = which(fit_sedi$q.otu.omni[3,] < 0.1)
+w3_sedi_Seep = length(w3_sedi)#39 ASVs
+(otu.omni.var1 = colnames(fit_sedi$q.otu.omni)[w3_sedi])
+
+
+
+###############
+
+
+```
+
+
+```{r}
+##permanovaFL
+
+sedi.permanova=permanovaFL(Mat_sedi_perc|(Run+ Season)~ Meta_sedi_perc$Site+ factor(Meta_sedi_perc$Year)+ Meta_sedi_perc$Seepage_level, data=Meta_sedi_perc, dist.method="bray",seed=seed)
+
+
+
+sedi.permanova$F.statistics
+#1.8950483 0.2660014 2.3241481
+sedi.permanova$p.permanova
+#0.00019996 0.36980000 0.00179964
+
+
+#####################
+```
+
+
+
+
+```{r}
+adj.data_sedi=adjust.data.by.covariates(~ Run+Season, data=Meta_sedi_perc, otu.table=Mat_sedi_perc, dist.method="bray")
+PCs_sedi <- eigen(adj.data_sedi$adj.dist, symmetric=TRUE)
+
+
+
+PCs_sedi_df=as.data.frame(PCs_sedi$vectors[,1:3])
+
+PCs_sedi_df=cbind(PCs_sedi_df,Meta_sedi_perc)
+
+
+ggplot(PCs_sedi_df, aes(V1, V2, shape=Site, color=Seepage_level))+
+  geom_point(size=5, alpha=0.8)+stat_ellipse()
+   scale_shape_manual(values=c(1,15, 16, 17,18, 19,20))+
+  theme_bw()+
+  scale_color_manual(values = c('#7fc97f','#beaed4','#fdc086','#ffff99','#386cb0','#f0027f','#bf5b17'))+
+  labs(x="PCoA1 (33.2%)",y="PCoA2 (12.1%)")
+  
+```
+
+
+
+# Sites
+We going to investigate each site separately
+
+First, let's subset each site 
+```{r}
+AT357=filter(df_perc, Site=="AT357")
+Mat_AT357=AT357[,29:8799]
+Meta_AT357=AT357[,1:28]
+
+GC234=filter(df_perc, Site=="GC234")
+Mat_GC234=GC234[,29:8799]
+Meta_GC234=GC234[,1:28]
+
+
+GC249=filter(df_perc, Site=="GC249")
+Mat_GC249=GC249[,29:8799]
+Meta_GC249=GC249[,1:28]
+
+
+MC751=filter(df_perc, Site=="MC751")
+Mat_MC751=MC751[,29:8799]
+Meta_MC751=MC751[,1:28]
+
+
+MC885=filter(df_perc, Site=="MC885")
+Mat_MC885=MC885[,29:8799]
+Meta_MC885=MC885[,1:28]
+```
+
+
+
+##AT357
+```{r}
+(seed=sample.int(100000, size=1))
+
+fit_AT357 <- ldm(Mat_AT357|(Run+ Season)~ Meta_AT357$Species + factor(Meta_AT357$Year)+Meta_AT357$Seepage_level, data=Meta_AT357, dist.method="bray",test.global=TRUE, test.otu=TRUE, n.rej.stop=100, fdr.nominal=0.1, seed=seed)
+
+
+
+
+
+fit_AT357$p.global.omni # To see p value of each of fixed effect in order
+#0.00019996 0.57320000 0.47280000
+
+
+VE_submodels_AT357=sum(fit_AT357$VE.global.freq.submodels)
+VE_resi_AT357=sum(fit_AT357$VE.global.freq.residuals)
+VE_total_AT357=sum(VE_submodels_AT357+VE_resi_AT357)
+
+
+fit_AT357$VE.global.freq.submodels/VE_total_AT357*100
+#39.1863407  0.5055112 11.9375154
+
+
+w1_AT357 = which(fit_AT357$q.otu.omni[1,] < 0.1)
+(n.otu.omni.var1 = length(w1_AT357)) #122 ASVs
+(otu.omni.var1 = colnames(fit_AT357$q.otu.omni)[w1_AT357])
+
+
+w2_AT357 = which(fit_AT357$q.otu.omni[2,] < 0.1)
+(n.otu.omni.var1 = length(w2_AT357))# 26 ASVs
+(otu.omni.var1 = colnames(fit_AT357$q.otu.omni)[w2_AT357])
+
+
+w3_AT357 = which(fit_AT357$q.otu.omni[3,] < 0.1)
+(n.otu.omni.var1 = length(w3_AT357))
+# zero ASVs
+
+
+
+
+###############
+
+
+AT357.permanova=permanovaFL(Mat_AT357|(Run+ Season)~ Meta_AT357$Species+ factor(Meta_AT357$Year)+ Meta_AT357$Seepage_level, data=Meta_AT357, dist.method="bray",seed=seed)
+
+
+
+AT357.permanova$F.statistics
+#12.0481839  0.4949802  1.3952312
+AT357.permanova$p.permanova
+#0.00019996 0.42020000 0.95700000
+
+
+#####################
+
+
+adj.data_AT357=adjust.data.by.covariates(~ Run+ Season , data=Meta_AT357, otu.table=Mat_AT357, dist.method="bray")
+PCs_AT357 <- eigen(adj.data_AT357$adj.dist, symmetric=TRUE)
+
+
+
+PCs_AT357=as.data.frame(PCs_AT357$vectors[,1:3])
+
+PCs_AT357_df=cbind(PCs_AT357,Meta_AT357)
+
+
+ggplot(PCs_AT357_df, aes(V1, V2, shape=Species, color=Seepage_level))+
+  geom_point(size=5, alpha=0.8)+stat_ellipse()
+  scale_shape_manual(values=c(1,15, 16, 17,18))+
+  theme_bw()+
+  scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
+  labs(x="PCoA1 (33.2%)",y="PCoA2 (12.1%)")
+```
+
+
+
+##GC234
+```{r}
+(seed=sample.int(100000, size=1))
+
+fit_GC234 <- ldm(Mat_GC234|(Run+ Season+ExtractionProcedure)~ Meta_GC234$Species + factor(Meta_GC234$Year)+Meta_GC234$Seepage_level, data=Meta_GC234, dist.method="bray",test.global=TRUE, test.otu=TRUE, n.rej.stop=100, fdr.nominal=0.1, seed=seed)
+
+
+
+
+
+fit_GC234$p.global.omni # To see p value of each of fixed effect in order
+#0.00019996 0.02820000 0.81920000
+
+
+VE_submodels_GC234=sum(fit_GC234$VE.global.freq.submodels)
+VE_resi_GC234=sum(fit_GC234$VE.global.freq.residuals)
+VE_total_GC234=sum(VE_submodels_GC234+VE_resi_GC234)
+
+
+fit_GC234$VE.global.freq.submodels/VE_total_GC234*100
+#42.242173  1.949148  3.852163
+
+
+w1_GC234 = which(fit_GC234$q.otu.omni[1,] < 0.1)
+(n.otu.omni.var1 = length(w1_GC234)) #51 ASVs
+(otu.omni.var1 = colnames(fit_GC234$q.otu.omni)[w1_GC234])
+
+
+w2_GC234 = which(fit_GC234$q.otu.omni[2,] < 0.1)
+(n.otu.omni.var1 = length(w2_GC234))# 40 ASVs
+(otu.omni.var1 = colnames(fit_GC234$q.otu.omni)[w2_GC234])
+
+
+w3_GC234 = which(fit_GC234$q.otu.omni[3,] < 0.1)
+(n.otu.omni.var1 = length(w3_GC234))
+# Zero ASVs
+
+
+
+
+###############
+
+
+GC234.permanova=permanovaFL(Mat_GC234|(Run+ Season+ExtractionProcedure)~ Meta_GC234$Species+ factor(Meta_GC234$Year)+ Meta_GC234$Seepage_level, data=Meta_GC234, dist.method="bray",seed=seed)
+
+
+
+GC234.permanova$F.statistics
+#11.033694  1.353889  1.585680
+GC234.permanova$p.permanova
+#0.00019996 0.01600000 0.68780000
+
+
+#####################
+
+
+adj.data_GC234=adjust.data.by.covariates(~ Run+ Season+ExtractionProcedure, data=Meta_GC234, otu.table=Mat_GC234, dist.method="bray")
+PCs_GC234 <- eigen(adj.data_GC234$adj.dist, symmetric=TRUE)
+
+
+
+PCs_GC234=as.data.frame(PCs_GC234$vectors[,1:3])
+
+PCs_GC234_df=cbind(PCs_GC234,Meta_GC234)
+
+
+ggplot(PCs_GC234_df, aes(V1, V2, shape=Species, color=Seepage_level))+
+  geom_point(size=5, alpha=0.8)+stat_ellipse()
+  scale_shape_manual(values=c(1,15, 16, 17,18))+
+  theme_bw()+
+  scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
+  labs(x="PCoA1 (33.2%)",y="PCoA2 (12.1%)")
+```
+
+
+
+
+
+##GC249
+All samples collected at 2017 and all of them are seep. so no temporal comparision or effect of seep with this site.
+
+```{r}
+(seed=sample.int(100000, size=1))
+
+fit_GC249 <- ldm(Mat_GC249|(Run)~ Meta_GC249$Species , data=Meta_GC249, dist.method="bray",test.global=TRUE, test.otu=TRUE, n.rej.stop=100, fdr.nominal=0.1, seed=seed)
+
+
+
+
+
+fit_GC249$p.global.omni # To see p value of each of fixed effect in order
+#0.02173913
+
+
+VE_submodels_GC249=sum(fit_GC249$VE.global.freq.submodels)
+VE_resi_GC249=sum(fit_GC249$VE.global.freq.residuals)
+VE_total_GC249=sum(VE_submodels_GC249+VE_resi_GC249)
+
+
+
+fit_GC249$VE.global.freq.submodels/VE_total_GC249*100
+#79.8669
+
+
+w1_GC249 = which(fit_GC249$q.otu.omni[1,] < 0.1)
+(n.otu.omni.var1 = length(w1_GC249)) #33 ASVs
+(otu.omni.var1 = colnames(fit_GC249$q.otu.omni)[w1_GC249])
+
+
+
+
+
+
+###############
+
+
+GC249.permanova=permanovaFL(Mat_GC249|(Run)~ Meta_GC249$Species, data=Meta_GC249, dist.method="bray",seed=seed)
+
+
+
+GC249.permanova$F.statistics
+#50.17414
+GC249.permanova$p.permanova
+#0.0249066
+
+
+#####################
+
+
+adj.data_GC249=adjust.data.by.covariates(~ Run , data=Meta_GC249, otu.table=Mat_GC249, dist.method="bray")
+PCs_GC249 <- eigen(adj.data_GC249$adj.dist, symmetric=TRUE)
+
+
+
+PCs_GC249=as.data.frame(PCs_GC249$vectors[,1:3])
+
+PCs_GC249_df=cbind(PCs_GC249,Meta_GC249)
+
+
+ggplot(PCs_GC249_df, aes(V1, V2, shape=Species, color=Seepage_level))+
+  geom_point(size=5, alpha=0.8)+stat_ellipse()
+  scale_shape_manual(values=c(1,15, 16, 17,18))+
+  theme_bw()+
+  scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
+  labs(x="PCoA1 (33.2%)",y="PCoA2 (12.1%)")
+```
+
+
+
+
+
+
+
+##MC751
+```{r}
+(seed=sample.int(100000, size=1))
+
+fit_MC751 <- ldm(Mat_MC751|(Run+ Preservation+ExtractionProcedure)~ Meta_MC751$Species +factor(Meta_MC751$Year) + Meta_MC751$Seepage_level, data=Meta_MC751, dist.method="bray",test.global=TRUE, test.otu=TRUE, n.rej.stop=100, fdr.nominal=0.1, seed=seed)
+
+
+
+
+
+fit_MC751$p.global.omni # To see p value of each of fixed effect in order
+#0.00019996 0.01559688 0.27340000
+
+
+VE_submodels_MC751=sum(fit_MC751$VE.global.freq.submodels)
+VE_resi_MC751=sum(fit_MC751$VE.global.freq.residuals)
+VE_total_MC751=sum(VE_submodels_MC751+VE_resi_MC751)
+
+
+fit_MC751$VE.global.freq.submodels/VE_total_MC751*100
+#50.123429  2.490398  6.452977
+
+
+w1_MC751 = which(fit_MC751$q.otu.omni[1,] < 0.1)
+(n.otu.omni.var1 = length(w1_MC751)) #53 ASVs
+(otu.omni.var1 = colnames(fit_MC751$q.otu.omni)[w1_MC751])
+
+
+
+w2_MC751 = which(fit_MC751$q.otu.omni[2,] < 0.1)
+(n.otu.omni.var1 = length(w2_MC751))# 50 ASVs
+(otu.omni.var1 = colnames(fit_MC751$q.otu.omni)[w2_MC751])
+
+
+w3_MC751 = which(fit_MC751$q.otu.omni[3,] < 0.1)
+(n.otu.omni.var1 = length(w3_MC751))
+# Zero ASVs
+
+
+###############
+
+
+MC751.permanova=permanovaFL(Mat_MC751|(Run+ Preservation+ExtractionProcedure)~ Meta_MC751$Species+ factor(Meta_MC751$Year)+ Meta_MC751$Seepage_level, data=Meta_MC751, dist.method="bray",seed=seed)
+
+
+
+MC751.permanova$F.statistics
+#14.228063  2.184153  2.793821
+MC751.permanova$p.permanova
+#0.00019996 0.01220000 0.29580000
+
+
+#####################
+
+
+adj.data_MC751=adjust.data.by.covariates(~ Run+Preservation+ExtractionProcedure , data=Meta_MC751, otu.table=Mat_MC751, dist.method="bray")
+PCs_MC751 <- eigen(adj.data_MC751$adj.dist, symmetric=TRUE)
+
+
+
+PCs_MC751=as.data.frame(PCs_MC751$vectors[,1:3])
+
+PCs_MC751_df=cbind(PCs_MC751,Meta_MC751)
+
+
+ggplot(PCs_MC751_df, aes(V1, V2, shape=Species, color=Visual_seep))+
+  geom_point(size=5, alpha=0.8)+ stat_ellipse()
+  scale_shape_manual(values=c(1,15, 16, 17,18))+
+  theme_bw()+
+  scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
+  labs(x="PCoA1 (33.2%)",y="PCoA2 (12.1%)")
+```
+
+
+
+
+
+
+
+
+##MC885
+```{r}
+(seed=sample.int(100000, size=1))
+
+fit_MC885 <- ldm(Mat_MC885|(Run+ Preservation+ExtractionProcedure+Season)~ Meta_MC885$Species +factor(Meta_MC885$Year) + Meta_MC885$Seepage_level, data=Meta_MC885, dist.method="bray",test.global=TRUE, test.otu=TRUE, n.rej.stop=100, fdr.nominal=0.1, seed=seed)
+
+
+
+
+
+fit_MC885$p.global.omni # To see p value of each of fixed effect in order
+#0.00019996 0.00019996 0.29760000
+
+
+VE_submodels_MC885=sum(fit_MC885$VE.global.freq.submodels)
+VE_resi_MC885=sum(fit_MC885$VE.global.freq.residuals)
+VE_total_MC885=sum(VE_submodels_MC885+VE_resi_MC885)
+
+
+fit_MC885$VE.global.freq.submodels/VE_total_MC885*100
+#62.903882  2.664120  3.052771
+
+
+w1_MC885 = which(fit_MC885$q.otu.omni[1,] < 0.1)
+(n.otu.omni.var1 = length(w1_MC885)) #88 ASVs
+(otu.omni.var1 = colnames(fit_MC885$q.otu.omni)[w1_MC885])
+
+
+
+w2_MC885 = which(fit_MC885$q.otu.omni[2,] < 0.1)
+(n.otu.omni.var1 = length(w2_MC885))# 94 ASVs
+(otu.omni.var1 = colnames(fit_MC885$q.otu.omni)[w2_MC885])
+
+
+w3_MC885 = which(fit_MC885$q.otu.omni[3,] < 0.1)
+(n.otu.omni.var1 = length(w3_MC885))
+# 20 ASVs
+
+
+###############
+
+
+MC885.permanova=permanovaFL(Mat_MC885|(Run+ Season+Preservation+ExtractionProcedure)~ Meta_MC885$Species+ factor(Meta_MC885$Year)+ Meta_MC885$Seepage_level, data=Meta_MC885, dist.method="bray",seed=seed)
+
+
+
+MC885.permanova$F.statistics
+#23.183187  4.233641  4.807042
+MC885.permanova$p.permanova
+#0.00019996 0.00019996 0.17520000
+
+
+#####################
+
+
+adj.data_MC885=adjust.data.by.covariates(~ Run+Season+Preservation+ExtractionProcedure , data=Meta_MC885, otu.table=Mat_MC885, dist.method="bray")
+PCs_MC885 <- eigen(adj.data_MC885$adj.dist, symmetric=TRUE)
+
+
+
+PCs_MC885=as.data.frame(PCs_MC885$vectors[,1:3])
+
+PCs_MC885_df=cbind(PCs_MC885,Meta_MC885)
+
+
+ggplot(PCs_MC885_df, aes(V1, V2, shape=Species, color=Visual_seep))+
+  geom_point(size=5, alpha=0.8)+ stat_ellipse()
+  scale_shape_manual(values=c(1,15, 16, 17,18))+
+  theme_bw()+
+  scale_color_manual(values = c('#d7191c','#fdae61','#abdda4','#2b83ba'))+
+  labs(x="PCoA1 (33.2%)",y="PCoA2 (12.1%)")
+```
