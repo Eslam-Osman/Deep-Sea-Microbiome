@@ -21,14 +21,18 @@ To import our data frame
 df <- read_excel("Data/df_final.xlsx")
 
 
+
 #### let's remove samples that have less than 1000 read per samples
-df=df[rowSums(df[,29:8799])>1000,] # two samples were removed after this process
+#df=df[rowSums(df[,29:8630])>1000,] # two samples were removed after this process. 
+#Removed and saved as a new dataframe
+
 Meta=df[,1:28]# to cut out metadata
-Mat=df[,29:8799]# to cut out bacterial community matrix
+Mat=df[,29:8630]# to cut out bacterial community matrix
 
 
 ### sanity check
 sort(rowSums(Mat))
+#head(sort(colSums(Mat)))## More than 5 ASV
 
 ```
 
@@ -39,7 +43,7 @@ To visualize the coverage of samples in each run
 ```{r}
 
 Meta$Run=factor(Meta$Run, levels = c("1","2","3")) # to identify differnt patch as factors
-summary(Meta$Run)#patch 1 has 115 samples and patch 2 has 42, while patch 3 has 29 samples that include only seawater
+summary(Meta$Run)#patch 1 has 115 samples and patch 2 has 40, while patch 3 has 29 samples that include only seawater
 
 
 #To visualize the coverage of samples in each patch
@@ -52,7 +56,7 @@ ggplot(df, aes(factor(df$Run), rowSums(Mat)))+
   labs(x="Patch number",y="Number of reads")
 ```
 
-To test the significance between the number of reads per sample for each patch, we should go first for normality test. 
+To test the significance between the number of reads between patchx, we should go first for normality test. 
 
 ```{r}
 shapiro.test(log10(rowSums(Mat))) # to check data normality
@@ -70,50 +74,52 @@ summary(batch_effect)
 
 ```
 
-
 The outcome shows that patch 2 was not significantly different from patch 1, but both patches 1&2 were significantly different from patch 3. This is OK because Run 3 has only water samples which would not interfere with the analysis of other experiment components.
 
 
 
-Some summary about the each patch
+
+Summary stats about each patch
 ```{r}
 # Patch 1
-Run_1=df1[which(df$Run=="1"),]  #115 samples
-Run_1_sum=sum(Run_1[,29:8799])  #829591 reads for all reads
+Run_1=df[which(df$Run=="1"),]  #115 samples
+sum(Run_1[,29:8630])  #829527 reads for all reads
 
-Run_1_Callo=df1[which(df1$Run=="1" & df1$Species=="Callogorgia_delta"),] # 63 sampels
-Run_1_Sedi=df1[which(df1$Run=="1" & df1$Species=="Sediment"),] # 30 samples
-Run_1_Para=df1[which(df1$Run=="1" & df1$Species=="Paramuricea_sp._B3"),] # 22 samples
+#Run_1_Callo=df[which(df$Run=="1" & df$Species=="Callogorgia_delta"),] # 63 sampels
+#Run_1_Sedi=df[which(df$Run=="1" & df$Species=="Sediment"),] # 30 samples
+#Run_1_Para=df[which(df$Run=="1" & df$Species=="Paramuricea_sp._B3"),] # 22 samples
 
 
 # Patch 2
-Run_2=df1[which(df1$Run=="2"),] #42 samples
-Run_2_sum=sum(Run_2[,29:8799])#299827 reads
+Run_2=df[which(df$Run=="2"),] #40 samples
+sum(Run_2[,29:8630])#281749 reads
 
 
-Run_2_Callo=df1[which(df1$Run=="2" & df1$Species=="Callogorgia_delta"),] # 25 sampels
-Run_2_Sedi=df1[which(df1$Run=="2" & df1$Species=="Sediment"),] # 15 samples
-Run_2_Para=df1[which(df1$Run=="2" & df1$Species=="Paramuricea_sp._B3"),] # 2 samples
+#Run_2_Callo=df[which(df$Run=="2" & df$Species=="Callogorgia_delta"),] # 25 sampels
+#Run_2_Sedi=df[which(df$Run=="2" & df$Species=="Sediment"),] # 15 samples
+#Run_2_Para=df[which(df$Run=="2" & df$Species=="Paramuricea_sp._B3"),] # 2 samples
 
 
 
 # Patch 3 (only seawater)
-Run_3=df1[which(df1$Run=="3"),] #29 samples all of them ar seawater
-Run_3_sum=sum(Run_3[,29:8799]) #633691 reads
+Run_3=df[which(df$Run=="3"),] #29 samples all of them ar seawater
+sum(Run_3[,29:8630]) #633372 reads
 
-range(rowSums(Run_3[,13:8783]))  # form 15473 to 36856 reads per sampels
+Run_3_row=rowSums(Run_3[,29:8630])
+range(Run_3_row)# form 15473 to 36856 reads per sampels
 ```
+
+
+
+
+
+
 
 
 # patch effect of using different methods of collecting Seawater
 
 ```{R}
 # to see how reads of seawater sampels looks loke
-Run_3=df1[which(df1$Run=="3"),]
-Run_3_row=rowSums(Run_3[,29:8799])
-range(Run_3_row)  # form 15473 to 36856 read per sampels
-
-
 barplot(Run_3_row, ylab = "Number of reads", xlab = "Samples")
 
 ```
@@ -146,10 +152,10 @@ hist(Run_3_row)
 shapiro.test(Run_3_row)  # data is not normal
 ```
 
-
+Let'd do transform the data
 ```{r}
 #log transformation to make it normal
-shapiro.test(log(Run_3_row)) # now data is normally distribution 
+shapiro.test(log(Run_3_row)) # now data is normally distributed 
 ```
 
 
@@ -164,9 +170,10 @@ TukeyHSD(aov(Run_3_row ~ Run_3$Year)) ## there is no significnce difffernce betw
 ```
 
 
+To further confirm the the previous anova analysis, let's do GLM model
 
 ```{r}
 water_patch=glm(log(Run_3_row) ~ Run_3$Year)
 summary(water_patch)
 ```
-
+It is clearly inform that there is not differnce between sequances depth between the two different methods of seawater collection. 
