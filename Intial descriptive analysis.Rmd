@@ -29,7 +29,7 @@ require(dplyr)        #data handling
 ## to import excel file
 df <- read_excel("Data/df_final.xlsx")
 Meta=df[,1:28]
-Mat=df[,29:8799]
+Mat=df[,29:8630]
 
 ```
 
@@ -38,17 +38,17 @@ Mat=df[,29:8799]
 Let's go for some summary stats about our reads
 ```{r}
 # To get the total number of reads
-sum(Mat)  # total reads = 1745046
+sum(Mat)  # total reads = 1744648
 
 
 # To get the reads per sample
 sampleSum=rowSums(Mat)
 summary(sampleSum)
 # Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-#1128    3847    8823    9479   10674   36856   
+#1128    3599    8810    9482   10707   36856    
 
 #To get the standard variation between samples
-sd(sampleSum)#6342
+sd(sampleSum)#6373.832
 
 # To check whether samples depth is normally distributed or not
 shapiro.test(sampleSum)  # non parametric even after several transformation trials
@@ -91,7 +91,7 @@ To check the number of ESVs per each coral species, Seawater, and Sediment
 df_binary= replace(Mat, Mat>0, 1) # to convert any value above 0 to 1 to count how many ESVs per samples
 summary (rowSums(df_binary))
 # Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-#12.00   29.75   50.00  352.04  623.25 1681.00  
+#12.00   29.75   50.00  350.98  622.50 1675.00  
 
 
 ggplot(df, aes(Species, rowSums(df_binary)))+
@@ -113,13 +113,13 @@ ggplot(df, aes(Species, rowSums(df_binary)))+
 #*Callogorgia*
 ```{r}
 Callogorgia=filter(df, Species=="Callogorgia_delta") # n=88 samples
-Mat_Callo=Callogorgia[,29:8799]
+Mat_Callo=Callogorgia[,29:8630]
 Meta_Callo=Callogorgia[,1:28]
 
 
 summary(rowSums(Mat_Callo))
 #Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-#4705    8304    9576    9412   10406   12554 
+#4705    8304    9575    9412   10404   12554 
 sd(rowSums(Mat_Callo))# 1517
 
 
@@ -137,10 +137,10 @@ ggplot(Callogorgia, aes(Site, rowSums(Mat_Callo)))+
 Mat_Callo_binary=replace(Mat_Callo, Mat_Callo>0,1)
 summary(rowSums(Mat_Callo_binary))
 #Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-#12.00   24.75   30.50   35.35   42.00  101.00
+#12.00   24.75   30.00   35.30   42.00  101.00 
 
 sd(rowSums(Mat_Callo_binary))
-#16.71742
+#16.723
 
 
 # To calculate the total number of ESVs that exist in all samples
@@ -197,12 +197,12 @@ ggplot(Callogorgia, aes(Seepage_level, rowSums(Mat_Callo_binary)))+
 ```{r}
 
 Paramuricea=filter(df, Species=="Paramuricea_sp._B3") # n=24 samples
-Mat_Paramuricea=Paramuricea[,29:8799]
+Mat_Paramuricea=Paramuricea[,29:8630]
 Meta_Paramuricea=Paramuricea[,1:28]
 
 summary(rowSums(Mat_Paramuricea))
 #Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-#2399    7060    7572    7137    8706    9381
+#2399    7060    7572    7137    8706    9379
 
 sd(rowSums(Mat_Paramuricea)) #2150
 
@@ -232,14 +232,14 @@ The variation of reads between years refers to number of samples where we have o
 Mat_Para_binary=replace(Mat_Paramuricea, Mat_Paramuricea>0,1)
 summary(rowSums(Mat_Para_binary))
 #Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-#18.00   28.50   37.50   40.05   52.00   73.00 
+#18.0    28.5    37.5    40.0    52.0    72.0 
 
 sd(rowSums(Mat_Para_binary))
-#14.1
+#14.7
 
 # To calculate the total number of ESVs that exist in all samples
 ncol(Mat_Para_binary[which(colSums(Mat_Para_binary)>0)])
-#346
+#324
 ```
 
 
@@ -261,21 +261,21 @@ ggplot(Paramuricea, aes(factor(Seepage_level), rowSums(Mat_Para_binary)))+
 
 
 
-Seawater
+#Seawater
 
 ```{r}
 Seawater=filter(df, Species=="Seawater") # n=29 samples
-Mat_Water=Seawater[,29:8799]
+Mat_Water=Seawater[,29:8630]
 Meta_Water=Seawater[,1:28]
 
 summary(rowSums(Mat_Water))
 # Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-#15473   19180   21264   21851   23835   36856 
+#15472   19174   21260   21840   23833   36856
 
-sd(rowSums(Mat_Water))#4468
+sd(rowSums(Mat_Water))#4469
 
 shapiro.test(log(rowSums(Mat_Water))) # log normalized
-#W = 0.96685, p-value = 0.4779
+#W = 0.96655, p-value = 0.4704
 
 hist(rowSums(Mat_Water))
 ```
@@ -295,14 +295,14 @@ ggplot(Seawater, aes(factor(Site), rowSums(Mat_Water)))+
 Mat_water_binary=replace(Mat_Water, Mat_Water>0,1)
 summary(rowSums(Mat_water_binary))
 #Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-#683    1016    1219    1197    1420    1681
+#683    1006    1179    1191    1414    1675 
 
 sd(rowSums(Mat_water_binary))
 #264
 
 # To calculate the total number of ESVs that exist in all samples
 ncol(Mat_water_binary[which(colSums(Mat_water_binary)>0)])
-#4768
+#4665
 ```
 
 
@@ -346,21 +346,21 @@ ggplot(Seawater, aes(factor(Seepage_level), rowSums(Mat_water_binary)))+
 
 
 
-Sediment
+#Sediment
 
 ```{r}
 Sediment=filter(df, Species=="Sediment") # n=45 samples
-Mat_Sediment=Sediment[,29:8799]
+Mat_Sediment=Sediment[,29:8630]
 Meta_Sediment=Sediment[,1:28]
 
 summary(rowSums(Mat_Sediment))
 # Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-# 1128    2469    2805    2803    3265    4572   
+# 1128    2469    2803    2801    3265    4572    
 
 sd(rowSums(Mat_Sediment)) #652
 
 shapiro.test(rowSums(Mat_Sediment)) # Parametic data
-#W = 0.9775, p-value = 0.5221
+#= 0.97732, p-value = 0.5154
 
 hist(rowSums(Mat_Sediment))
 ```
@@ -370,14 +370,14 @@ hist(rowSums(Mat_Sediment))
 Mat_Sedi_binary=replace(Mat_Sediment, Mat_Sediment>0,1)
 summary(rowSums(Mat_Sedi_binary))
 # Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-# 278.0   537.0   597.0   579.5   647.0   792.0
+# 278.0   537.0   597.0   578.7   644.0   791.0 
 
 sd(rowSums(Mat_Sedi_binary))
-#99.48267
+#99
 
 # To calculate the total number of ESVs that exist in all samples
 ncol(Mat_Sedi_binary[which(colSums(Mat_Sedi_binary)>0)])
-#4021
+#4000
 
 ```
 
