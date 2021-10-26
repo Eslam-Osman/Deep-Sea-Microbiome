@@ -1,0 +1,127 @@
+---
+title: "Growth data"
+author: "E.O. Osman"
+date: "1/23/2020"
+output: html_document
+---
+
+#Growth rate
+```{r}
+require(readxl)
+require(ggplot2)
+require(tidyr)
+require(dplyr)
+require(lme4)
+require(afex)#To provide p values for LMEM
+```
+
+
+
+## to import the data file
+```{r}
+Growth.data <- read.csv("D:/Deep Sea Coral Project/16S Data/Seep_Data/Seep R Project/Seep project/Seep Microbiome_R code/Seep project_final/Deep-Sea-Microbiome/Data/Growth data.csv")
+```
+
+
+
+##To plot both species
+```{r}
+col_seep=c('#fdc086','#35978f')
+
+ggplot(Growth.data, aes(Species, Growth_rate, fill=Seepage))+
+  geom_boxplot(outlier.shape = NA)+
+  geom_point(size=5,alpha=0.3, position = position_jitterdodge(0.3))+
+  theme_bw()+theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
+  labs(title = "Growth rate", y="Annual continuous growth rate (%)", x="")+
+  scale_fill_manual(values =col_seep)+
+  theme(plot.title = element_text(hjust = 0.5))
+  
+````  
+
+
+
+
+
+##GLM to test the variation in growth rates between species and Seepage. We did not include sites because the variation will be driven by AT357 that has only paramuricea. 
+```{r}
+
+Gr_all=glm(Growth_rate~ Species*Seepage, data=Growth.data, family="quasibinomial")
+anova(Gr_all, test = "F")
+
+```
+
+
+
+
+
+##Let's get the mean and SD for growth rate for C.delta
+```{r}
+collo_gro=filter(Growth.data, Species=="Callogorgia delta")
+
+summary(collo_gro$Growth_rate)
+sd(collo_gro$Growth_rate)
+
+
+##GLM
+callo_gr=glm(Growth_rate~ Site*Seepage, data=collo_gro, family="quasibinomial")
+summary(callo_gr)
+anova(callo_gr, test="F")
+
+```
+
+
+
+
+##to get summary stat for MC885 only which driv ethe main variation 
+```{r}
+
+summary(collo_gro$Growth_rate[collo_gro$Site=="MC885"],)
+sd(collo_gro$Growth_rate[collo_gro$Site=="MC885"],)
+
+
+
+MC885_GR=filter(collo_gro, Site=="MC885")
+
+
+MC885_gr_mod=glm(Growth_rate~ Seepage, data=MC885_GR, family="quasibinomial")
+summary(MC885_gr_mod)
+anova(MC885_gr_mod, test="F")
+
+```
+
+
+
+##Plotting coral growth of C.delta
+
+```{r}
+ggplot(collo_gro, aes(Seepage, Growth_rate, fill=Seepage))+geom_boxplot()+geom_jitter(shape=16,alpha=0.4,size=5, position=position_jitter(0.2))+theme_bw()+facet_wrap(Site~., scale="free")
+
+```
+
+
+
+
+##Let's get mean and SD for growth rate for Paramuricea
+
+```{r}
+
+para_gro=filter(Growth.data, Species=="Paramuricea Sp. B3")
+summary(para_gro$Growth_rate)
+sd(para_gro$Growth_rate)
+
+
+#GLM model
+para_gr=glm(Growth_rate~ Seepage, data=para_gro, family="quasibinomial")
+summary(para_gr)
+anova(para_gr, test = "F")
+```
+
+
+
+##plotting growth rate of Paramuricea
+
+```{r}
+ggplot(para_gro, aes(Seepage, Growth_rate, fill=Seepage))+geom_boxplot()+geom_jitter(shape=16,alpha=0.4,size=5, position=position_jitter(0.2))+theme_bw()
+
+```
+
