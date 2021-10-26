@@ -1,0 +1,127 @@
+---
+title: "Network Anlysis final"
+author: "E.O. Osman"
+date: "10/26/2021"
+output: html_document
+---
+
+
+# Network Analysis 
+
+
+##This to do Network analysis for microbial community associated with deep sea corals in Gulf of Mexico
+
+```{r}
+require(readxl)
+require(vegan)
+require(igraph)
+require(qgraph)
+require(ggplot2)
+
+```
+
+
+
+```{r}
+df <- read_excel("Data/df_final.xlsx")
+Meta=df[,1:28]
+Mat=df[,29:8630]
+```
+
+
+
+
+
+```{r}
+
+Mat_perc=t(apply(Mat, 1, function(x)(x)*100/(sum(x))))  # To generate a proportions table for summarizing
+#rowSums(Mat_perc)   # sanity check to see all our rows equal 100
+
+#Mat_perc=round(Mat_perc, digits = 0) # To remove decimal 
+
+
+
+```
+
+
+
+```{r}
+rownames(Mat_perc) <- Meta$SampleID # to change samples names to Samples ID
+Mat_perc_t=t(Mat_perc)
+colnames(Mat_perc_t) <- Meta$SampleID
+
+```
+
+
+# Correlation Based Network
+
+##To calculate the correlation based on pearson correlation 
+```{r}
+cor.matrix <- cor(Mat_perc_t, method = "pearson")
+
+
+
+Seep_shapes=as.factor(Meta$Visual_seep)
+levels(Seep_shapes)=c("triangle", "circle")
+
+
+
+cor_net=qgraph(cor.matrix,
+               graph = "glasso",
+               layout = "spring",
+               tuning = 0.25,
+               sampleSize = nrow(Mat_perc_t),
+               groups = Meta$Species,
+               legend.cex = 0.7,
+               palette = 'pastel',
+               posCol = "#1f78b4",
+               negCol = "#d53e4f",
+               borders = TRUE,
+               vTrans = 255,
+               labels=FALSE,
+               shape=Seep_shapes)
+
+
+plot(cor_net)
+```
+
+## to extract the network values needed for the analysis
+```{r}
+
+net.cen=centrality(cor_net) # This function will provide all reuqired values needed for network analysis
+
+bt <- do.call(rbind.data.frame, net.cen)
+Seepiness=colnames(bt)
+bt=t(bt)
+bt=as.data.frame(cbind(Meta, bt))
+
+
+
+### Closeness
+summary(glm(bt$Closeness ~ bt$Species*bt$Visual_seep))
+anova(glm(bt$Closeness ~ bt$Species*bt$Visual_seep),test = "F")
+
+
+ggplot(bt,aes(factor(bt$Species), as.numeric(bt$Closeness), fill=bt$Visual_seep))+geom_boxplot()+geom_jitter(shape=16,alpha=0.4,size=5, position=position_jitter(0.2))+ theme_bw()
+
+
+###Betweenness
+summary(glm(bt$Betweenness ~ bt$Species*bt$Visual_seep))
+anova(glm(bt$Betweenness ~ bt$Species*bt$Visual_seep), test = "F")
+
+ggplot(bt,aes(factor(bt$Species), as.numeric(bt$Betweenness), fill=bt$Visual_seep))+geom_boxplot()+geom_jitter(shape=16,alpha=0.4,size=5, position=position_jitter(0.2))+ theme_bw()
+
+
+###InDegree
+summary(glm(bt$InDegree ~ bt$Species*bt$Visual_seep))
+anova(glm(bt$InDegree ~ bt$Species*bt$Visual_seep),test = "F")
+
+
+###OutDegree
+summary(glm(bt$OutDegree ~ bt$Species*bt$Visual_seep))
+anova(glm(bt$OutDegree ~ bt$Species*bt$Visual_seep),test = "F")
+
+ggplot(bt,aes(factor(bt$Species), as.numeric(bt$OutDegree), fill=bt$Visual_seep))+geom_boxplot()+geom_jitter(shape=16,alpha=0.4,size=5, position=position_jitter(0.2))+ theme_bw()
+
+```
+
