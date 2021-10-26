@@ -1,0 +1,392 @@
+---
+title: "Random Forest"
+author: "E.O. Osman"
+date: "12/10/2019"
+output: html_document
+---
+
+
+```{r}
+require(randomForest) # To build Random forest model
+require(caret) # To cross validiate the your tained model
+require(dplyr) 
+require(tidyr)
+require(ggplot2)
+require(readxl)
+```
+
+
+
+```{r}
+df <- read_excel("Data/df_final.xlsx")
+Meta=df[,1:28]
+Mat=df[,29:8630]
+Mat_perc=t(apply(Mat, 1, function(x)(x)*100/(sum(x))))
+#rowSums(Mat_perc) 
+df_perc=cbind(Meta, Mat_perc)
+```
+
+
+# Species Classification
+
+
+
+```{r}
+
+#Species
+rf.Sp <- data.frame(Meta$Species, Mat_perc)# Community matrix 
+response_Sp=as.factor(Meta$Species)
+
+RF_all_Sp=randomForest(response_Sp~., data =rf.Sp[,-1], ntree=1001, importance=TRUE, proximities=TRUE)
+
+print(RF_all_Sp)
+plot(RF_all_Sp)
+
+
+
+All_Sp_im=as.data.frame(RF_all_Sp$importance)
+All_Sp_im$features <- rownames(All_Sp_im)
+All_Sp_im <- arrange(All_Sp_im, desc(MeanDecreaseAccuracy))
+All_Sp_im_top=All_Sp_im[1:15,]
+#write.csv(All_Sp_im_top$features, "Output/RF/All_Sp_im_top.csv")
+
+
+
+
+#Site
+response_Site=as.factor(Meta$Site)
+rf.Site <- data.frame(Meta$Site, Mat_perc)
+
+RF_all_Site=randomForest(response_Site~., data =rf.Site[,-1], ntree=1001, importance=TRUE, proximities=TRUE)
+
+
+print(RF_all_Site)
+plot(RF_all_Site)
+
+
+
+All_Site_im=as.data.frame(RF_all_Site$importance)
+All_Site_im$features <- rownames(All_Site_im)
+All_Site_im <- arrange(All_Site_im, desc(MeanDecreaseAccuracy))
+All_Site_im_top=All_Site_im[1:15,]
+#write.csv(All_Site_im_top$features, "Output/RF/All_Site_im_top.csv")
+
+
+
+
+#Year
+response_Year=as.factor(Meta$Year)
+rf.Year <- data.frame(Meta$Year, Mat_perc)
+
+RF_all_Year=randomForest(response_Year~., data =rf.Year[,-1], ntree=1001, importance=TRUE, proximities=TRUE)
+
+print(RF_all_Year)
+plot(RF_all_Year)
+
+
+
+All_Year_im=as.data.frame(RF_all_Year$importance)
+All_Year_im$features <- rownames(All_Year_im)
+All_Year_im <- arrange(All_Year_im, desc(MeanDecreaseAccuracy))
+All_Year_im_top=All_Year_im[1:15,]
+#write.csv(All_Year_im_top$features, "Output/RF/All_Year_im_top.csv")
+
+
+
+
+#Seep
+response_Seep=as.factor(Meta$Visual_seep)
+rf.Seep <- data.frame(Meta$Visual_seep, Mat_perc)
+
+RF_all_Seep=randomForest(response_Seep~., data =rf.Seep[,-1], ntree=1001, importance=TRUE, proximities=TRUE)
+
+
+print(RF_all_Seep)
+plot(RF_all_Seep)
+legend("right", colnames(RF_all_Seep$err.rate),col=1:7,cex=0.8,fill=1:4, horiz=F)
+
+
+All_Seep_im=as.data.frame(RF_all_Seep$importance)
+All_Seep_im$features <- rownames(All_Seep_im)
+All_Seep_im <- arrange(All_Seep_im, desc(MeanDecreaseAccuracy))
+All_Seep_im_top=All_Seep_im[1:15,]
+#write.csv(All_Seep_im_top$features, "Output/RF/All_Seep_im_top.csv")
+
+
+#RF_global=list(All_Sp_im_top$features, All_Site_im_top$features, All_Year_im_top$features, All_Seep_im_top$features)
+
+#tmp <- venn(RF_global)
+#attr(tmp, "intersections")
+
+
+
+
+
+```
+
+
+
+
+
+#Calssification of each species separately 
+
+##Callogorgia delta
+
+```{r}
+Callogorgia_perc=filter(df_perc, Species=="Callogorgia_delta") # n=88 samples
+
+Mat_Callo_perc=Callogorgia_perc[,29:8630]
+Meta_Callo_perc=Callogorgia_perc[,1:28]
+
+
+# Site
+callo_site=as.factor(Meta_Callo_perc$Site)
+rf.Callo_site <- data.frame(callo_site, Mat_Callo_perc)
+
+
+RF_Callo_site=randomForest(callo_site~., data = rf.Callo_site[,-1] , ntree=10001, importance=TRUE, proximities=TRUE)
+print(RF_Callo_site)
+
+
+RF_Callo_site_im=as.data.frame(RF_Callo_site$importance)
+RF_Callo_site_im$features <- rownames(RF_Callo_site_im)
+RF_Callo_site_im <- arrange(RF_Callo_site_im, desc(MeanDecreaseAccuracy))
+RF_Callo_site_im_top=All_Year_im[1:25,]
+#write.csv(RF_Callo_site_im_top$features, "Output/RF/RF_Callo_site_im_top.csv")
+
+
+
+#Years
+callo_Year=as.factor(Meta_Callo_perc$Year)
+rf.Callo_Year <- data.frame(callo_Year, Mat_Callo_perc)
+
+RF_Callo_Year=randomForest(callo_Year~., data = rf.Callo_Year[,-1] , ntree=10001, importance=TRUE, proximities=TRUE)
+print(RF_Callo_Year)
+
+
+RF_Callo_Year_im=as.data.frame(RF_Callo_Year$importance)
+RF_Callo_Year_im$features <- rownames(RF_Callo_Year_im)
+RF_Callo_Year_im <- arrange(RF_Callo_Year_im, desc(MeanDecreaseAccuracy))
+RF_Callo_Year_im_top=All_Year_im[1:25,]
+#write.csv(RF_Callo_Year_im_top$features, "Output/RF/RF_Callo_Year_im_top.csv")
+
+
+
+#Seep
+callo_Seep=as.factor(Meta_Callo_perc$Visual_seep)
+rf.Callo_Seep <- data.frame(callo_Seep, Mat_Callo_perc)
+
+RF_Callo_Seep=randomForest(callo_Seep~., data = rf.Callo_Seep[,-1] , ntree=10001, importance=TRUE, proximities=TRUE)
+print(RF_Callo_Seep)
+
+
+RF_Callo_Seep_im=as.data.frame(RF_Callo_Seep$importance)
+RF_Callo_Seep_im$features <- rownames(RF_Callo_Seep_im)
+RF_Callo_Seep_im <- arrange(RF_Callo_Seep_im, desc(MeanDecreaseAccuracy))
+RF_Callo_Seep_im_top=All_Seep_im[1:15,]
+#write.csv(RF_Callo_Seep_im_top$features, "Output/RF/RF_Callo_Seep_im_top.csv")
+
+ggplot(RF_Callo_Seep_im_top, aes(x=reorder(features, MeanDecreaseAccuracy), y =MeanDecreaseAccuracy )) +
+  geom_bar(stat = "identity", fill = "indianred") +
+  coord_flip()+
+  theme_bw()
+
+
+```
+
+
+
+##Paramuracea
+
+
+```{r}
+
+Paramuricea_perc=filter(df_perc, Species=="Paramuricea_sp._B3") # n=88 samples
+
+Mat_Para_perc=Paramuricea_perc[,29:8630]
+Meta_Para_perc=Paramuricea_perc[,1:28]
+
+
+
+#Years
+para_Year=as.factor(Meta_Para_perc$Year)
+rf.para_Year <- data.frame(para_Year, Mat_Para_perc)
+
+RF_para_Year=randomForest(para_Year~., data = rf.para_Year[,-1] , ntree=10001, importance=TRUE, proximities=TRUE)
+print(RF_para_Year)
+
+
+RF_para_Year_im=as.data.frame(RF_para_Year$importance)
+RF_para_Year_im$features <- rownames(RF_para_Year_im)
+RF_para_Year_im <- arrange(RF_para_Year_im, desc(MeanDecreaseAccuracy))
+RF_para_Year_im_top=RF_para_Year_im[1:25,]
+#write.csv(RF_para_Year_im_top$features, "Output/RF/RF_para_Year_im_top.csv")
+
+
+
+#Seep
+para_Seep=as.factor(Meta_Para_perc$Visual_seep)
+rf.para_Seep <- data.frame(para_Seep, Mat_Para_perc)
+
+RF_para_Seep=randomForest(para_Seep~., data = rf.para_Seep[,-1] , ntree=10001, importance=TRUE, proximities=TRUE)
+print(RF_para_Seep)
+
+
+RF_para_Seep_im=as.data.frame(RF_para_Seep$importance)
+RF_para_Seep_im$features <- rownames(RF_para_Seep_im)
+RF_para_Seep_im <- arrange(RF_para_Seep_im, desc(MeanDecreaseAccuracy))
+RF_para_Seep_im_top=RF_para_Seep_im[1:15,]
+head(RF_para_Seep_im_top$features)
+#write.csv(RF_para_Seep_im_top$features, "Output/RF/RF_para_Seep_im_top.csv")
+
+
+ggplot(RF_para_Seep_im_top, aes(x=reorder(features, MeanDecreaseAccuracy), y =MeanDecreaseAccuracy )) +
+  geom_bar(stat = "identity", fill = "indianred") +
+  coord_flip()+
+  theme_bw()
+
+```
+
+
+
+## Seawater
+
+```{r}
+
+Seawater_perc=filter(df_perc, Species=="Seawater") 
+
+Mat_wat_perc=Seawater_perc[,29:8799]
+Meta_wat_perc=Seawater_perc[,1:28]
+
+
+# Site
+wat_site=as.factor(Meta_wat_perc$Site)
+rf.wat_site <- data.frame(wat_site, Mat_wat_perc)
+
+
+RF_wat_site=randomForest(wat_site~., data = rf.wat_site[,-1] , ntree=10001, importance=TRUE, proximities=TRUE)
+print(RF_wat_site)
+
+
+RF_wat_site_im=as.data.frame(RF_wat_site$importance)
+RF_wat_site_im$features <- rownames(RF_wat_site_im)
+RF_wat_site_im <- arrange(RF_wat_site_im, desc(MeanDecreaseAccuracy))
+RF_wat_site_im_top=RF_wat_site_im[1:15,]
+#write.csv(RF_wat_site_im_top$features, "Output/RF/RF_wat_site_im_top.csv")
+
+
+
+#Years
+wat_Year=as.factor(Meta_wat_perc$Year)
+rf.wat_Year <- data.frame(wat_Year, Mat_wat_perc)
+
+RF_wat_Year=randomForest(wat_Year~., data = rf.wat_Year[,-1] , ntree=10001, importance=TRUE, proximities=TRUE)
+print(RF_wat_Year)
+
+
+RF_wat_Year_im=as.data.frame(RF_wat_Year$importance)
+RF_wat_Year_im$features <- rownames(RF_wat_Year_im)
+RF_wat_Year_im <- arrange(RF_wat_Year_im, desc(MeanDecreaseAccuracy))
+RF_wat_Year_im_top=RF_wat_Year_im[1:15,]
+#write.csv(RF_wat_Year_im_top$features, "Output/RF/RF_wat_Year_im_top.csv")
+
+
+
+#Seep
+wat_Seep=as.factor(Meta_wat_perc$Visual_seep)
+rf.wat_Seep <- data.frame(wat_Seep, Mat_wat_perc)
+
+RF_wat_Seep=randomForest(wat_Seep~., data = rf.wat_Seep[,-1] , ntree=10001, importance=TRUE, proximities=TRUE)
+print(RF_wat_Seep)
+
+
+RF_wat_Seep_im=as.data.frame(RF_wat_Seep$importance)
+RF_wat_Seep_im$features <- rownames(RF_wat_Seep_im)
+RF_wat_Seep_im <- arrange(RF_wat_Seep_im, desc(MeanDecreaseAccuracy))
+RF_wat_Seep_im_top=RF_wat_Seep_im[1:15,]
+#write.csv(RF_wat_Seep_im_top$features, "Output/RF/RF_wat_Seep_im_top.csv")
+
+
+ggplot(RF_wat_Seep_im_top, aes(x=reorder(features, MeanDecreaseAccuracy), y =MeanDecreaseAccuracy )) +
+  geom_bar(stat = "identity", fill = "indianred") +
+  coord_flip()+
+  theme_bw()
+
+
+tapply(Seawater_perc$`b8aef294e45126fd7b5e3d90434c57eb; Bacteria; Proteobacteria; Gammaproteobacteria; Alteromonadales; Alteromonadaceae; Alteromonas; uncultured Alteromonas sp.`, Seawater_perc$Visual_seep, mean)
+
+
+
+
+
+
+
+
+```
+
+
+##Sediment
+```{r}
+Sediment_perc=filter(df_perc, Species=="Sediment") 
+
+Mat_sedi_perc=Sediment_perc[,29:8630]
+Meta_sedi_perc_perc=Sediment_perc[,1:28]
+
+
+# Site
+sedi_site=as.factor(Meta_sedi_perc$Site)
+rf.sedi_site <- data.frame(sedi_site, Mat_sedi_perc)
+
+
+RF_sedi_site=randomForest(sedi_site~., data = rf.sedi_site[,-1] , ntree=10001, importance=TRUE, proximities=TRUE)
+print(RF_sedi_site)
+
+
+RF_sedi_site_im=as.data.frame(RF_sedi_site$importance)
+RF_sedi_site_im$features <- rownames(RF_sedi_site_im)
+RF_sedi_site_im <- arrange(RF_sedi_site_im, desc(MeanDecreaseAccuracy))
+RF_sedi_site_im_top=RF_sedi_site_im[1:15,]
+#write.csv(RF_sedi_site_im_top$features, "Output/RF/RF_sedi_site_im_top.csv")
+
+
+
+#Years
+sedi_Year=as.factor(Meta_sedi_perc$Year)
+rf.sedi_Year <- data.frame(sedi_Year, Mat_sedi_perc)
+
+RF_sedi_Year=randomForest(sedi_Year~., data = rf.sedi_Year[,-1] , ntree=10001, importance=TRUE, proximities=TRUE)
+print(RF_sedi_Year)
+
+
+RF_sedi_Year_im=as.data.frame(RF_sedi_Year$importance)
+RF_sedi_Year_im$features <- rownames(RF_sedi_Year_im)
+RF_sedi_Year_im <- arrange(RF_sedi_Year_im, desc(MeanDecreaseAccuracy))
+RF_sedi_Year_im_top=RF_sedi_Year_im[1:25,]
+#write.csv(RF_sedi_Year_im_top$features, "Output/RF/RF_sedi_Year_im_top.csv")
+
+
+
+#Seep
+sedi_Seep=as.factor(Meta_sedi_perc$Visual_seep)
+rf.sedi_Seep <- data.frame(sedi_Seep, Mat_sedi_perc)
+
+RF_sedi_Seep=randomForest(sedi_Seep~., data = rf.sedi_Seep[,-1] , ntree=10001, importance=TRUE, proximities=TRUE)
+print(RF_sedi_Seep)
+
+
+RF_sedi_Seep_im=as.data.frame(RF_sedi_Seep$importance)
+RF_sedi_Seep_im$features <- rownames(RF_sedi_Seep_im)
+RF_sedi_Seep_im <- arrange(RF_sedi_Seep_im, desc(MeanDecreaseAccuracy))
+RF_sedi_Seep_im_top=RF_sedi_Seep_im[1:15,]
+#write.csv(RF_sedi_Seep_im_top$features, "Output/RF/RF_sedi_Seep_im_top.csv")
+
+
+
+ggplot(RF_sedi_Seep_im_top, aes(x=reorder(features, MeanDecreaseAccuracy), y =MeanDecreaseAccuracy )) +
+  geom_bar(stat = "identity", fill = "indianred") +
+  coord_flip()+
+  theme_bw()
+
+tapply(Sediment_perc$`76a0e9200151994cd9643027584b67ba; Bacteria; Proteobacteria; Gammaproteobacteria; Xanthomonadales; JTB255 marine benthic group`, Sediment_perc$Visual_seep, mean)
+```
+

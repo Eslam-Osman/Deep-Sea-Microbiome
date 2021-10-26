@@ -1,0 +1,805 @@
+---
+title: "Indicator Species Analysis (final)"
+author: "E.O. Osman"
+date: "12/20/2019"
+output: html_document
+---
+
+```{r}
+require(readxl)     #import excel files
+require(indicspecies)
+require(data.table)
+require(rowr)
+require(eulerr)
+require(dplyr)
+require(tidyr)
+require(ggplot2)
+```
+
+
+
+
+
+```{r}
+## to import excel file
+
+df <-read_excel("Data/df_final.xlsx")
+
+Meta=df[,1:28]
+Mat=df[,29:8630]
+```
+
+
+
+```{r}
+
+Mat_perc=t(apply(Mat, 1, function(x)(x)*100/(sum(x))))  # To generate a proportions table for summarizing
+#rowSums(Mat_perc)   # sanity check to see all our rows equal 100
+
+
+
+df_perc=cbind(Meta, Mat_perc)
+
+
+# We need to trnaspose our data frame to extract our indicator taxa from this big microbial data frame for further analysis. This will be used later. 
+
+df_trans=as.data.frame(t(df_perc))
+df_trans$Taxa <- colnames(df_perc) ## To have a column that can be index for species
+
+```
+
+
+
+
+#Indicatore speceies analysis
+
+```{r}
+
+#Species
+Indi_species=multipatt(as.data.frame(Mat_perc), Meta$Species, control = how(nperm = 9999))
+
+#Site
+Indi_Site=multipatt(as.data.frame(Mat_perc), Meta$Site, control = how(nperm = 9999))
+
+#Year
+Indi_Year=multipatt(as.data.frame(Mat_perc), Meta$Year, control = how(nperm = 9999))
+
+#Seep
+Indi_Seep=multipatt(as.data.frame(Mat_perc), Meta$Visual_seep, control = how(nperm = 9999))
+
+
+```
+
+
+To extract and plot indictor species taxa for each variables (global)
+```{r}
+
+#Species
+
+indi_sp.sign=as.data.table(Indi_species$sign, keep.rownames=TRUE) # To extract all Indi Taxa 
+
+indi_sp_sig=filter(indi_sp.sign, p.value<0.05) ## To extract indictor species that have significant p value only (p<0.05). 
+indi_sp_sig_names=indi_sp_sig$rn  ## To extact only species names to be used as index to extact their abundance 
+#write.csv(indi_sp_sig_names, "Output/indi_sp_sig_names.csv")
+
+
+
+#plot
+col_seep=c('#fdc086','#35978f')
+plot(euler(indi_sp_sig[,2:5]), counts = T, fontface = 1, quantities = TRUE, legend = TRUE, fill=col_seep)
+
+
+
+
+
+
+#Site
+indi_site.sign=as.data.table(Indi_Site$sign, keep.rownames=TRUE)
+indi_site_sig=filter(indi_site.sign, p.value<0.05) ## To extract indictor taxa that have significant p value only for Sites 
+indi_site_sig_names=indi_site_sig$rn  ## To extact only species names to be used as index to extact their abundance 
+#write.csv(indi_site_sig_names, "Output/indi_site_sig_names.csv")
+
+
+plot(euler(indi_site_sig[,2:6]), counts = T, fontface = 1, quantities = TRUE, legend = TRUE, fill=col_seep)
+
+
+
+
+
+
+
+#Year
+indi_year.sign=as.data.table(Indi_Year$sign, keep.rownames=TRUE)
+indi_year_sig=filter(indi_year.sign, p.value<0.05) ## To extract indictor taxa that have significant p value only for Years 
+indi_year_sig_names=indi_year_sig$rn  ## To extact only species names to be used as index to extact their abundance
+#write.csv(indi_year_sig_names, "Output/indi_year_sig_names.csv")
+
+
+plot(euler(indi_year_sig[,2:4]), counts = T, fontface = 1, quantities = TRUE, legend = TRUE, fill=col_seep)
+
+
+
+
+
+
+
+#Seeps
+indi_seep.sign=as.data.table(Indi_Seep$sign, keep.rownames=TRUE)
+indi_seep_sig=filter(indi_seep.sign, p.value<0.05) ## To extract indictor taxa that have significant p value only for Seeps 
+indi_seep_sig_names=indi_seep_sig$rn  ## To extact only species names to be used as index to extact their abundance
+#write.csv(indi_seep_sig, "Output/indi_seep_sig.csv")
+
+seep_name=indi_seep_sig[which(indi_seep_sig$s.Seep=="1"),] # to get the seep taxa names
+seep_name=seep_name$rn
+
+plot(euler(indi_seep_sig[,2:3]), counts = T, fontface = 1, quantities = TRUE, legend = TRUE, fill=col_seep)
+
+
+```
+
+
+
+
+
+
+
+
+
+To investigate indicator taxa that associated with cold seeps within each corals species, sediment and seawater. This will allow us to find taxa that significantly associated with cold seep.  
+
+
+
+# Cold seep of Callogorgia delta
+
+```{r}
+
+Callogorgia_perc=filter(df_perc, Species=="Callogorgia_delta")
+Mat_Callo_perc=Callogorgia_perc[,29:8630]
+# To remove all ASVs that was not recorded in C.delta to minimize computational time
+Mat_Callo_perc=Mat_Callo_perc[which (colSums(Mat_Callo_perc)>0)] 
+
+Meta_Callo_perc=Callogorgia_perc[,1:28]
+
+
+##To get the varibale that we need to classfy accodingly
+Callo_Seep= Meta_Callo_perc$Visual_seep
+
+
+
+Indi_Callo_Seep=multipatt(Mat_Callo_perc, Callo_Seep, control = how(nperm = 9999))
+#summary(Indi_Callo_Seep) 
+
+
+indi_Callo_seep.sign=as.data.table(Indi_Callo_Seep$sign, keep.rownames=TRUE)
+
+## To extract indictor species that have significant p value only. 
+indi_Callo_Seep_sig=filter(indi_Callo_seep.sign, p.value<0.05)#18 ASVs associated with seeps variation
+
+
+# to plot venn diagram
+
+plot(euler(indi_Callo_Seep_sig[,2:3]), counts = T, fontface = 1, quantities = TRUE, legend = TRUE, fill=col_seep)
+
+
+indi_Callo_Seep_sig[which(indi_Callo_Seep_sig$s.Seep=="1"),] # to get the seep taxa names
+
+
+```
+
+###analysis of indictor taxa 
+```{r}
+
+# to test the correlation between the two SUP05 and stable isotope
+
+Callogorgia_perc$d13c=as.numeric(Callogorgia_perc$d13c)
+
+
+## SUP05-1
+
+## To do ANOVA test betweet seep and non-seep
+anova(lm(Mat_Callo_perc$`71a0ac6b040d7cf29f13da7eabf35d58; Bacteria; Proteobacteria; Gammaproteobacteria; Oceanospirillales; SUP05 cluster; Ambiguous_taxa; Ambiguous_taxa`~Meta_Callo_perc$Visual_seep))
+#F value  Pr(>F)
+#2.3053   0.1326
+
+
+ggplot(Callogorgia_perc, aes(Visual_seep, `71a0ac6b040d7cf29f13da7eabf35d58; Bacteria; Proteobacteria; Gammaproteobacteria; Oceanospirillales; SUP05 cluster; Ambiguous_taxa; Ambiguous_taxa`))+ geom_boxplot()+labs(title="F=2.3, P=0.13", x="Seepage", y="SUP05-1 relative abundnace (%)")+theme_bw()
+
+
+
+
+
+
+## correlation with C13
+ggplot(Callogorgia_perc,aes(d13c, Mat_Callo_perc$`71a0ac6b040d7cf29f13da7eabf35d58; Bacteria; Proteobacteria; Gammaproteobacteria; Oceanospirillales; SUP05 cluster; Ambiguous_taxa; Ambiguous_taxa`))+ geom_point(size=4, alpha=0.5)+ geom_smooth(method = "lm")+labs(x="d13c", y="SUP05 (1) relative abundnace (%)")+ theme_bw()
+
+anova(lm(Mat_Callo_perc$`71a0ac6b040d7cf29f13da7eabf35d58; Bacteria; Proteobacteria; Gammaproteobacteria; Oceanospirillales; SUP05 cluster; Ambiguous_taxa; Ambiguous_taxa` ~ Meta_Callo_perc$d13c))
+
+
+##correlation with N15
+ggplot(Callogorgia_perc,aes(d15n, Mat_Callo_perc$`71a0ac6b040d7cf29f13da7eabf35d58; Bacteria; Proteobacteria; Gammaproteobacteria; Oceanospirillales; SUP05 cluster; Ambiguous_taxa; Ambiguous_taxa`))+ geom_point(size=4, alpha=0.5)+ geom_smooth(method = "lm")+labs(x="d15n", y="SUP05 (1) relative abundnace (%)")+theme_bw()
+
+summary(lm(Mat_Callo_perc$`71a0ac6b040d7cf29f13da7eabf35d58; Bacteria; Proteobacteria; Gammaproteobacteria; Oceanospirillales; SUP05 cluster; Ambiguous_taxa; Ambiguous_taxa`~ Meta_Callo_perc$d15n))
+
+
+## SUP05-2
+
+
+summary(aov(Mat_Callo_perc$`2728797e1ceec9dba36b16225872e8ad; Bacteria; Proteobacteria; Gammaproteobacteria; Oceanospirillales; SUP05 cluster`~Meta_Callo_perc$Visual_seep))
+#F value  Pr(>F)
+#4.997    0.028 *
+
+
+ggplot(Callogorgia_perc, aes(Visual_seep, `2728797e1ceec9dba36b16225872e8ad; Bacteria; Proteobacteria; Gammaproteobacteria; Oceanospirillales; SUP05 cluster`))+ geom_boxplot()+labs(title="F=2.3, P=0.13", x="Seepage", y="SUP05-1 relative abundnace (%)")+theme_bw()
+
+
+##C13
+
+summary(lm(Mat_Callo_perc$`2728797e1ceec9dba36b16225872e8ad; Bacteria; Proteobacteria; Gammaproteobacteria; Oceanospirillales; SUP05 cluster`~Meta_Callo_perc$d13c))
+
+
+ggplot(Callogorgia_perc, aes(d13c, Mat_Callo_perc$ `2728797e1ceec9dba36b16225872e8ad; Bacteria; Proteobacteria; Gammaproteobacteria; Oceanospirillales; SUP05 cluster`))+ geom_point(size=4, alpha=0.5)+geom_smooth(method = "lm")+labs(x="d13c", y="SUP05 (2) relative abundnace (%)")+theme_bw()
+
+
+
+
+##N15
+summary(lm(Mat_Callo_perc$`2728797e1ceec9dba36b16225872e8ad; Bacteria; Proteobacteria; Gammaproteobacteria; Oceanospirillales; SUP05 cluster`~Meta_Callo_perc$d15n))
+
+ggplot(Callogorgia_perc, aes(d15n, `2728797e1ceec9dba36b16225872e8ad; Bacteria; Proteobacteria; Gammaproteobacteria; Oceanospirillales; SUP05 cluster`))+ geom_point(size=4, alpha=0.5)+geom_smooth(method = "lm")+labs(x="d15n", y="SUP05 (2) relative abundnace (%)")+theme_bw()
+
+
+```
+
+
+
+
+
+
+**Paramuricea**
+```{r}
+
+Paramuricea_perc=filter(df_perc, Species=="Paramuricea_sp._B3")
+Mat_Para_perc=Paramuricea_perc[,29:8630]
+Mat_Para_perc=Mat_Para_perc[which (colSums(Mat_Para_perc)>0)] 
+Meta_Para_perc=Paramuricea_perc[,1:28]
+
+
+
+
+Para_Seep= Meta_Para_perc$Visual_seep
+Indi_Para_Seep=multipatt(Mat_Para_perc, Para_Seep, control = how(nperm = 9999))
+
+
+summary(Indi_Para_Seep, indvalcomp=TRUE)
+
+
+indi_Para_seep.sign=as.data.table(Indi_Para_Seep$sign, keep.rownames=TRUE)
+
+indi_Para_Seep_sig=filter(indi_Para_seep.sign, p.value<0.05) ## To extract indictor species that have significant p value only. 
+
+plot(euler(indi_Para_Seep_sig[,2:3]), counts = T, fontface = 1, quantities = TRUE, legend = TRUE, fill=col_seep)
+
+
+
+# different SUP05 pylotype was identifed with Paramuricea_sp._B3
+
+```
+
+
+
+```{r}
+## differnce in mean value
+tapply(Paramuricea_perc$`380d9747904b081121befc7d2c389da3; Bacteria; Proteobacteria; Gammaproteobacteria; Oceanospirillales; SUP05 cluster; Ambiguous_taxa; Ambiguous_taxa`,Paramuricea_perc$Visual_seep, mean)
+#Non Seep      Seep 
+#0.0000000 0.1475895
+
+
+# to calculate the difference in mean, we used anova
+
+anova(lm(Paramuricea_perc$`380d9747904b081121befc7d2c389da3; Bacteria; Proteobacteria; Gammaproteobacteria; Oceanospirillales; SUP05 cluster; Ambiguous_taxa; Ambiguous_taxa`~Paramuricea_perc$Visual_seep))
+
+
+ggplot(Paramuricea_perc, aes(Visual_seep, `380d9747904b081121befc7d2c389da3; Bacteria; Proteobacteria; Gammaproteobacteria; Oceanospirillales; SUP05 cluster; Ambiguous_taxa; Ambiguous_taxa`))+ geom_boxplot()+labs(title="F=1.4119, P=0.2487", x="d13c", y="SUP05 relative abundnace (%)")+theme_bw()
+
+
+##correlation with C13
+
+anova(lm(Paramuricea_perc$`380d9747904b081121befc7d2c389da3; Bacteria; Proteobacteria; Gammaproteobacteria; Oceanospirillales; SUP05 cluster; Ambiguous_taxa; Ambiguous_taxa`~Paramuricea_perc$d13c))
+
+
+ggplot(Paramuricea_perc, aes(d13c, `380d9747904b081121befc7d2c389da3; Bacteria; Proteobacteria; Gammaproteobacteria; Oceanospirillales; SUP05 cluster; Ambiguous_taxa; Ambiguous_taxa`))+ geom_point(size=4, alpha=0.5)+geom_smooth(method = "lm")+labs(x="d13c", y="SUP05 relative abundnace (%)")
+
+
+
+##N15 
+
+anova(lm(Paramuricea_perc$`380d9747904b081121befc7d2c389da3; Bacteria; Proteobacteria; Gammaproteobacteria; Oceanospirillales; SUP05 cluster; Ambiguous_taxa; Ambiguous_taxa`~Paramuricea_perc$d15n))
+
+
+ggplot(Paramuricea_perc, aes(d15n, `380d9747904b081121befc7d2c389da3; Bacteria; Proteobacteria; Gammaproteobacteria; Oceanospirillales; SUP05 cluster; Ambiguous_taxa; Ambiguous_taxa`))+ geom_point(size=4, alpha=0.5)+geom_smooth(method = "lm")+labs(x="d13c", y="SUP05 relative abundnace (%)")
+
+
+```
+
+
+
+
+
+**Seawater**
+
+```{r}
+
+Seawater_perc=filter(df_perc, Species=="Seawater") # n=29 samples
+Mat_wat_perc=Seawater[,29:8630]
+Mat_wat_perc=Mat_wat_perc[which (colSums(Mat_wat_perc)>0)] 
+Meta_wat_perc=Seawater[,1:28]
+
+
+Water_Seep= Meta_wat_perc$Visual_seep
+
+
+Indi_Water_seep=multipatt(Mat_wat_perc, Water_Seep, control = how(nperm = 9999))
+summary(Indi_Water_seep)
+
+
+indi_wat_seep.sign=as.data.table(Indi_Water_seep$sign, keep.rownames=TRUE)
+
+indi_wat_Seep_sig=filter(indi_wat_seep.sign, p.value<0.05) ## To extract indictor species that have significant p value only. 
+
+plot(euler(indi_wat_Seep_sig[,2:3]), counts = T, fontface = 1, quantities = TRUE, legend = TRUE, fill=col_seep)
+
+
+
+```
+
+
+
+
+
+**Sediment**
+```{r}
+Sediment_perc=filter(df_perc, Species=="Sediment") # n=45 samples
+Mat_sedi_perc=Sediment[,29:8630]
+Mat_sedi_perc=Mat_sedi_perc[which (colSums(Mat_sedi_perc)>0)] 
+Meta_sedi_perc=Sediment[,1:28]
+
+
+
+
+Sedi_Seep= Meta_sedi_perc$Visual_seep
+
+
+Indi_Sedi_seep=multipatt(Mat_sedi_perc, Sedi_Seep, control = how(nperm = 9999))
+#summary(Indi_Sedi_seep, indvalcomp=TRUE)
+
+
+indi_sedi_seep.sign=as.data.table(Indi_Sedi_seep$sign, keep.rownames=TRUE)
+
+indi_sedi_Seep_sig=filter(indi_sedi_seep.sign, p.value<0.05) ## To extract indictor species that have significant p value only. 
+
+
+
+#indi_sedi_Seep_sig[which(indi_sedi_Seep_sig$s.Seep=="1"),] # to get the seep taxa names
+
+
+plot(euler(indi_sedi_Seep_sig[,2:3]), counts = T, fontface = 1, quantities = TRUE, legend = TRUE, fill=col_seep)
+
+
+```
+
+
+
+
+
+
+
+
+
+So, let's investigate the influance of microbial effect within each site for each species. 
+
+
+**GC234** Indicator species
+```{r}
+GC234_callo=filter(df_perc, Site=="GC234" & Species=="Callogorgia_delta")
+GC234_callo_mat=GC234_callo[,29:8630]
+GC234_callo_mat1=GC234_callo_mat[,colSums(GC234_callo_mat)>0]
+
+
+
+
+#Callogorgia
+Indi_GC234_callo=multipatt(GC234_callo_mat, GC234_callo$Visual_seep, control = how(nperm = 9999))
+summary(Indi_GC234_callo, indvalcomp=TRUE)
+
+
+Indi_GC234_callo.sign=as.data.table(Indi_GC234_callo$sign, keep.rownames=TRUE)
+Indi_GC234_callo.sig=filter(Indi_GC234_callo.sign, p.value<0.05) ## To extract indictor species that have significant p value only. 
+plot(euler(Indi_GC234_callo.sig[,2:3]), counts = T, fontface = 1, quantities = TRUE, legend = TRUE, fill=col_seep)
+
+
+ggplot(Callogorgia_perc, aes(d13c,`3cee45e6b5dec20b02f37be53319666a; Bacteria; Proteobacteria; Gammaproteobacteria; Alteromonadales; Shewanellaceae; Shewanella; Ambiguous_taxa`, colour=Site ))+geom_point()+geom_smooth(method = "lm")
+
+
+
+
+mean(GC234_callo$`ec78d51a2a39a2a3941767102c3c30d5, Bacteria, Proteobacteria, Alphaproteobacteria`[which(GC234_callo$Seepiness=="Seep")]) #2.125
+
+sd(GC234_callo$`ec78d51a2a39a2a3941767102c3c30d5, Bacteria, Proteobacteria, Alphaproteobacteria`[which(GC234_callo$Seepiness=="Seep")]) #4.645787
+
+
+
+
+
+
+
+# Seawater
+GC234_water=filter(df1, Site=="GC234" & Species=="Seawater")
+Mat_GC234_water=GC234_water[,13:8783]
+Mat_GC234_water=Mat_GC234_water[,colSums(Mat_GC234_water)>0]
+Meta_GC234_water=GC234_water[,1:12]
+
+
+Indi_GC234_water=multipatt(Mat_GC234_water, Meta_GC234_water$Seepiness, control = how(nperm = 9999))
+summary(Indi_GC234_water, indvalcomp=TRUE) # zero indicator taxa for both seeps and non seeps
+
+
+
+
+
+#Sediment
+GC234_sedi=filter(df_perc, Site=="GC234" & Species=="Sediment")
+GC234_sedi_mat=GC234_sedi[,29:8630]
+GC234_sedi_mat1=GC234_sedi_mat[,colSums(GC234_sedi_mat)>0]
+
+
+
+Indi_GC234_sedi=multipatt(GC234_sedi_mat1, GC234_sedi$Visual_seep, control = how(nperm = 9999))
+summary(Indi_GC234_sedi, indvalcomp=TRUE) # zero indicator taxa for both seeps and non seeps
+
+
+Indi_GC234_sedi.sign=as.data.table(Indi_GC234_sedi$sign, keep.rownames=TRUE)
+Indi_GC234_sedi.sig=filter(Indi_GC234_sedi.sign, p.value<0.05) ## To extract indictor species that have significant p value only. 
+plot(euler(Indi_GC234_sedi.sig[,2:3]), counts = T, fontface = 1, quantities = TRUE, legend = TRUE, fill=col_seep)
+
+
+
+
+mean(GC234_sedi$`X21ff5b812a3e6283af18c5ee92c6c3ca, Bacteria, Proteobacteria, Deltaproteobacteria, Desulfuromonadales, Desulfuromonadaceae`[which(GC234_sedi$Seepiness=="Non Seep")]) #0.75
+
+sd(GC234_sedi$`X21ff5b812a3e6283af18c5ee92c6c3ca, Bacteria, Proteobacteria, Deltaproteobacteria, Desulfuromonadales, Desulfuromonadaceae`[which(GC234_sedi$Seepiness=="Non Seep")]) 
+
+
+```
+
+
+
+
+
+
+**GC249** Indicator species
+```{r}
+GC249_callo=filter(df_perc, Site=="GC249" & Species=="Callogorgia_delta") # all sample are seep and 0 nonseep samples
+
+GC249_water=filter(df_perc, Site=="GC249" & Species=="Seawater") # one water sample of seep
+
+GC249_sedi=filter(df_perc, Site=="GC249" & Species=="Sediment") # one sediment sample of seep
+
+
+# Compariosn here is not available
+
+
+```
+
+
+
+
+
+
+**MC751** Indicator species
+```{r}
+
+
+# Callogorgia
+MC751_callo=filter(df_perc, Site=="MC751" & Species=="Callogorgia_delta")
+MC751_callo_mat=MC751_callo[,29:8630]
+MC751_callo_mat=MC751_callo_mat[,colSums(MC751_callo_mat)>0]
+
+
+
+Indi_MC751_callo=multipatt(MC751_callo_mat, MC751_callo$Visual_seep, control = how(nperm = 9999))
+summary(Indi_MC751_callo, indvalcomp=TRUE)
+
+
+Indi_MC751_callo.sign=as.data.table(Indi_MC751_callo$sign, keep.rownames=TRUE)
+Indi_MC751_callo.sig=filter(Indi_MC751_callo.sign, p.value<0.05) ## To extract indictor species that have significant p value only. 
+plot(euler(Indi_MC751_callo.sig[,2:3]), counts = T, fontface = 1, quantities = TRUE, legend = TRUE, fill=col_seep)
+
+
+
+mean(MC751_callo$`X39d6c80e8bef873f00573c5d8b4d66ef, Bacteria`[which(MC751_callo$Seepiness=="Non Seep")]) 
+
+#######################
+
+
+
+
+
+# Seawater
+MC751_water=filter(df1, Site=="MC751" & Species=="Seawater")
+Mat_MC751_water=MC751_water[,13:8783]
+Mat_MC751_water=Mat_MC751_water[,colSums(Mat_MC751_water)>0]
+Meta_MC751_water=MC751_water[,1:12]
+
+
+Indi_MC751_water=multipatt(Mat_MC751_water, Meta_MC751_water$Seepiness, control = how(nperm = 9999))
+summary(Indi_MC751_water, indvalcomp=TRUE)
+
+sd(MC751_water$`c26679b9e345b62c915a39b66c406238, Bacteria, Proteobacteria, Gammaproteobacteria, Alteromonadales, Alteromonadaceae, Alteromonas`[which(MC751_water$Seepiness=="Non Seep")]) 
+
+
+#################
+
+
+
+
+
+#Sediment
+MC751_sedi=filter(df_perc, Site=="MC751" & Species=="Sediment")
+MC751_sedi_mat=MC751_sedi[,29:8630]
+MC751_sedi_mat1=MC751_sedi_mat[,colSums(MC751_sedi_mat)>0]
+
+
+
+Indi_MC751_sedi=multipatt(MC751_sedi_mat1, MC751_sedi$Visual_seep, control = how(nperm = 9999))
+summary(Indi_MC751_sedi, indvalcomp=TRUE)
+
+Indi_MC751_sedi.sign=as.data.table(Indi_MC751_sedi$sign, keep.rownames=TRUE)
+Indi_MC751_sedi.sig=filter(Indi_MC751_sedi.sign, p.value<0.05) ## To extract indictor species that have significant p value only. 
+
+plot(euler(Indi_MC751_sedi.sig[,2:3]), counts = T, fontface = 1, quantities = TRUE, legend = TRUE, fill=col_seep)
+
+
+```
+
+
+
+
+**MC885** Indicator species
+```{r}
+
+#Callogorgia
+
+MC885_callo=filter(df_perc, Site=="MC885" & Species=="Callogorgia_delta")
+MC885_callo_mat=MC885_callo[,29:8630]
+MC885_callo_mat1=MC885_callo_mat[,colSums(MC885_callo_mat)>0]
+
+
+
+Indi_MC885_callo=multipatt(MC885_callo_mat1, MC885_callo$Visual_seep, control = how(nperm = 9999))
+summary(Indi_MC885_callo, indvalcomp=TRUE) # No taxa were found with either seep or non-seep samples
+
+
+
+Indi_MC885_callo.sign=as.data.table(Indi_MC885_callo$sign, keep.rownames=TRUE)
+
+Indi_MC885_callo.sig=filter(Indi_MC885_callo.sign, p.value<0.05) ## To extract indictor species that have significant p value only. 
+
+plot(euler(Indi_MC885_callo.sig[,2:3]), counts = T, fontface = 1, quantities = TRUE, legend = TRUE, fill=col_seep)
+
+
+
+#####################
+
+
+#Seawater
+MC885_water=filter(df1, Site=="MC885" & Species=="Seawater") # 2 non seep vs 6 seep
+Mat_MC885_water=MC885_water[,13:8783]
+Mat_MC885_water=Mat_MC885_water[,colSums(Mat_MC885_water)>0]
+Meta_MC885_water=MC885_water[,1:12]
+
+
+Indi_MC885_water=multipatt(Mat_MC885_water, Meta_MC885_water$Seepiness, control = how(nperm = 9999))
+summary(Indi_MC885_water, indvalcomp=TRUE) # No taxa were found with either seep or non-seep samples
+
+
+####################
+
+
+
+
+# Sediment
+MC885_sedi=filter(df_perc, Site=="MC885" & Species=="Sediment") 
+MC885_sedi_mat=MC885_sedi[,29:8630]
+MC885_sedi_mat1=MC885_sedi_mat[,colSums(MC885_sedi_mat)>0]
+
+
+
+Indi_MC885_sedi=multipatt(MC885_sedi_mat1, MC885_sedi$Visual_seep, control = how(nperm = 9999))
+summary(Indi_MC885_sedi, indvalcomp=TRUE) # only one taxa with seep samples
+
+
+
+Indi_MC885_sedi.sign=as.data.table(Indi_MC885_sedi$sign, keep.rownames=TRUE)
+
+Indi_MC885_sedi.sig=filter(Indi_MC885_sedi.sign, p.value<0.05) ## To extract indictor species that have significant p value only. 
+
+plot(euler(Indi_MC885_sedi.sig[,2:3]), counts = T, fontface = 1, quantities = TRUE, legend = TRUE, fill=col_seep)
+
+
+
+
+
+mean(MC885_sedi$`X29c240cbd5d8e44f193b8bc7c315d5d5, Bacteria, Proteobacteria, Gammaproteobacteria, BD7.8.marine.group`[which(MC885_sedi$Seepiness=="Seep")]) 
+
+
+```
+
+
+
+
+**AT357** Indicator species
+```{r}
+
+#Paramuricea
+AT357_para=filter(df_perc, Site=="AT357" & Species=="Paramuricea_sp._B3") #7 non seep vs 17 seep samples
+AT357_para_mat=AT357_para[,29:8630]
+AT357_para_mat1=AT357_para_mat[,colSums(AT357_para_mat)>0]
+
+
+
+Indi_AT357_para=multipatt(AT357_para_mat1, AT357_para$Visual_seep, control = how(nperm = 9999))
+summary(Indi_AT357_para, indvalcomp=TRUE) # No taxa were found with either seep or non-seep samples
+
+
+Indi_AT357_para.sign=as.data.table(Indi_AT357_para$sign, keep.rownames=TRUE)
+
+Indi_AT357_para.sign_sig=filter(Indi_AT357_para.sign, p.value<0.05) ## To extract indictor species that have significant p value only. 
+
+plot(euler(Indi_AT357_para.sign_sig[,2:3]), counts = T, fontface = 1, quantities = TRUE, legend = TRUE, fill=col)
+
+
+
+###############
+
+
+
+#Seawater
+AT357_water=filter(df1, Site=="AT357" & Species=="Seawater") #only 2 non seep vs 1 seep sample
+
+
+
+
+
+#################################
+
+
+
+# Sediment
+AT357_Sedi=filter(df_perc, Site=="AT357" & Species=="Sediment")
+AT357_Sedi_mat=AT357_Sedi[,29:8630]
+AT357_Sedi_mat1=AT357_Sedi_mat1[,colSums(AT357_Sedi_mat)>0]
+
+
+
+Indi_AT357_sedi=multipatt(AT357_Sedi_mat1, AT357_Sedi$Visual_seep, control = how(nperm = 9999))
+summary(Indi_AT357_sedi, indvalcomp=TRUE)
+
+
+Indi_AT357_sedi.sign=as.data.table(Indi_AT357_sedi$sign, keep.rownames=TRUE)
+Indi_AT357_sedi.sign_sig=filter(Indi_AT357_sedi.sign, p.value<0.05) ## To extract indictor species that have significant p value only. 
+
+
+plot(euler(Indi_AT357_sedi.sign_sig[,2:3]), counts = T, fontface = 1, quantities = TRUE, legend = TRUE, fill=col_seep)
+
+```
+
+
+
+
+
+
+
+
+
+**Seep vs non-seep**
+```{r}
+Indi_Sedi_sp<-as.data.table(Indi_Sedi$sign, keep.rownames=TRUE) # to get all indicator species for both seeps
+
+
+
+
+##Seep
+
+
+#### To get indicator species only for seeps
+sedi_indi_seep=filter(Indi_Sedi_sp, p.value<0.05 & s.Seep>0) ## To extract indictor species that have significant p value only. 
+sedi_indi_seep_names=sedi_indi_seep$rn  ## To extact only species names to be used as index to extact their abundance 
+
+
+
+#### To extract abundnace for our indicator species 
+sedi_indi_seep_abun=subset(df_trans, Taxa %in% sedi_indi_seep_names) ## Taxa is the big dataframe and seep_indi_sig_names is our indi species
+
+
+
+sedi_indi_seep_abun_t=t(sapply(sedi_indi_seep_abun[,-184], function(x) as.integer(as.character(x)))) ## we used sapply not to transform number values in datafram. Otherwise, values will be encoded as factors and do not represent any values. Note that we removed Taxa by [,-184] and now, we have only values. 
+colnames(sedi_indi_seep_abun_t)=rownames(sedi_indi_seep_abun) ## To name the columns as the changed to number due to transpose. The coulmn name here is the row names in the previouse step.
+sedi_indi_seep_abun_t=cbind(Meta,sedi_indi_seep_abun_t)## Combine data with metadata
+
+
+
+#### This is to get the abundance of our indicator species only for our species only and not with other species. This allow us to know how abundtant our indicator species relative to other microbiome within the species
+sedi_indi_seep_abun_t=filter(sedi_indi_seep_abun_t, Seepiness=="Seep") ## Classic filter function
+sedi_indi_seep_mat=sedi_indi_seep_abun_t[,13:14]
+sedi_indi_seep_meta=sedi_indi_seep_abun_t[,1:12]
+
+
+sedi_indi_seep_colsum=sort(colSums(sedi_indi_seep_mat),decreasing = T ) ## To sum coulmns and sort it from higher to lower
+
+
+sum(sedi_indi_seep_colsum)*100/sum(Mat_Sediment_perc) ##1.63 % -- This is to get the total abundance of indi OTUs relative to the remaining microbiome within this category
+sedi_indi_seep_perc=sedi_indi_seep_colsum*100/sum(sedi_indi_seep_colsum) ## To get which of indi species is more abundnat relative to each other
+head(sedi_indi_seep_perc)
+
+
+
+
+colMeans(sedi_indi_seep_mat)
+
+boxplot(sedi_indi_seep_mat)
+
+
+
+
+
+## Non Seep
+
+
+
+#### To get indicator species only for seeps
+sedi_indi_nonseep=filter(Indi_Sedi_sp, p.value<0.05 & Indi_Sedi_sp$`s.Non Seep`>0) ## To extract indictor species that have significant p value only. 
+sedi_indi_nonseep_names=sedi_indi_nonseep$rn  ## To extact only species names to be used as index to extact their abundance 
+
+
+
+#### To extract abundnace for our indicator species 
+sedi_indi_nonseep_abun=subset(df_trans, Taxa %in% sedi_indi_nonseep_names) ## Taxa is the big dataframe and nonseep_indi_sig_names is our indi species
+
+
+
+sedi_indi_nonseep_abun_t=t(sapply(sedi_indi_nonseep_abun[,-184], function(x) as.integer(as.character(x)))) ## we used sapply not to transform number values in datafram. Otherwise, values will be encoded as factors and do not represent any values. Note that we removed Taxa by [,-184] and now, we have only values. 
+colnames(sedi_indi_nonseep_abun_t)=rownames(sedi_indi_nonseep_abun) ## To name the columns as the changed to number due to transpose. The coulmn name here is the row names in the previouse step.
+sedi_indi_nonseep_abun_t=cbind(Meta,sedi_indi_nonseep_abun_t)## Combine data with metadata
+
+
+
+#### This is to get the abundance of our indicator species only for our species only and not with other species. This allow us to know how abundtant our indicator species relative to other microbiome within the species
+sedi_indi_nonseep_abun_t=filter(sedi_indi_nonseep_abun_t, Seepiness=="Non Seep") ## Classic filter function
+sedi_indi_nonseep_mat=sedi_indi_nonseep_abun_t[,13:16]
+sedi_indi_nonseep_meta=sedi_indi_nonseep_abun_t[,1:12]
+
+
+sedi_indi_nonseep_colsum=sort(colSums(sedi_indi_nonseep_mat),decreasing = T ) ## To sum coulmns and sort it from higher to lower
+
+
+sum(nonseep_indi_mat_colsum)*100/sum(Seep[,13:8783]) ##0.3778804 % -- This is to get the total abundance of indi OTUs relative to the remaining microbiome within this category
+sedi_indi_nonseep_perc=sedi_indi_nonseep_colsum*100/sum(sedi_indi_nonseep_colsum) ## To get which of indi species is more abundnat relative to each other
+head(sedi_indi_nonseep_perc)
+
+
+colMeans(sedi_indi_nonseep_mat)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
