@@ -1,0 +1,653 @@
+---
+title: "Megafauna"
+author: "E.O. Osman"
+date: "1/4/2020"
+output: html_document
+---
+
+
+```{r}
+require(readxl)
+require(vegan)
+require(ggplot2)
+require(dplyr)
+require(tidyr)
+require(afex)
+require(lme4)
+```
+
+
+
+```{r}
+Mega_fauna <- read.csv("D:/Deep Sea Coral Project/16S Data/Seep_Data/Seep R Project/Seep project/Seep Microbiome_R code/Seep project_final/Deep-Sea-Microbiome/Data/Mega_fauna.csv")
+
+F_Mat=Mega_fauna[,10:40]
+F_Meta=Mega_fauna[,1:9]
+
+
+# Data matrix for beta diversity
+F_Mat_sqrt=sqrt(Mega_fauna[,10:40]+1)# To transform our matrix that has so many zero samples. We added 1 to each value and sqrt it.
+
+Mega_sq=cbind(F_Meta,F_Mat_sqrt) # compind transformed matrix with metadata - This us will be our new matrix
+```
+
+
+
+
+# C.delta
+```{r}
+F_Callo=filter(Mega_sq, Species=="Callogorgia delta") #n=380 image
+
+
+
+```
+
+
+
+```{r}
+# To calculate the most abundant taxa for C.delta
+F_Callo=F_Callo[colSums(F_Callo[10:40])>0,]
+perc_fauna_callo=sort(colSums(F_Callo[10:40]),decreasing = T)*100/sum(F_Callo[10:40])# Relative abundance
+
+
+
+perc_fauna_callo_mean=as.data.frame(colMeans(F_Callo[10:40])) #Mean abundance
+```
+
+
+
+To plot the dominat megafauna taxa in C. delta
+```{r}
+
+perc_fauna_callo_top=perc_fauna_callo[1:10]
+
+sum(perc_fauna_callo_top)-100 #-3.401361
+library(plyr) # to bind 
+perc_fauna_callo_top=append(perc_fauna_callo_top, 3.401361, after = 10) # To add the value after the 10th entry in the vector
+
+
+perc_fauna_callo_top=as.data.frame(perc_fauna_callo_top)
+perc_fauna_callo_top$Species=rownames(perc_fauna_callo_top)
+rownames(perc_fauna_callo_top) <- c()
+
+
+perc_fauna_callo_top$Species=c("Ophiuroid",
+                               "Cat shark eggs",
+                               "Pink shell crawler", 
+                               "Eumunida Picta",
+                               "Crab sp1",
+                               "Nudibranch",
+                               "Snail",
+                               "White Ophiuroid",
+                               "Anemone sp1",
+                               "Zoanthid",
+                               "Others")                
+ 
+
+perc_fauna_callo_top$Species=factor(perc_fauna_callo_top$Species,
+                                    levels=c("Ophiuroid",
+                               "Cat shark eggs",
+                               "Pink shell crawler", 
+                               "Eumunida Picta",
+                               "Crab sp1",
+                               "Nudibranch",
+                               "Snail",
+                               "White Ophiuroid",
+                               "Anemone sp1",
+                               "Zoanthid",
+                               "Others"))
+
+col=c('#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f','#ff7f00','#cab2d6','#6a3d9a','#ffff99','#b15928','#fe9929')
+
+# To plot the dominant fauna in C. delta
+
+ ggplot(perc_fauna_callo_top, aes(x="", y=perc_fauna_callo_top, fill=Species))+
+   geom_bar(width = 1, stat = "identity")+
+   coord_polar("y")+
+   scale_fill_manual(values=col)+theme_void()+
+   labs(title = "C. delta")
+
+
+```
+
+
+
+```{r}
+# Rarecurve for C.delta 
+rarecurve(F_Callo[10:40], main="Callogorgia delta")
+```
+
+
+
+```{r}
+# To calculate the most abundant taxa for Paramuricea
+
+F_Para=filter(Mega_fauna, Species=="Paramuricea B3 ") #n=178 samples
+```
+
+
+```{r}
+F_Para=F_Para[colSums(F_Para[10:40])>0,]
+perc_fauna_para=sort(colSums(F_Para[10:40]),decreasing = T)*100/sum(F_Para[10:40])# Relative abundance
+```
+
+
+
+
+```{r}
+perc_fauna_para_top=perc_fauna_para[1:7]
+
+sum(perc_fauna_para_top)-100 #-0.9009009
+ 
+perc_fauna_para_top=append(perc_fauna_para_top, 0.9009009, after =7) # To add the value after the 7th entry in the vector
+
+
+perc_fauna_para_top=as.data.frame(perc_fauna_para_top)
+perc_fauna_para_top$Species=rownames(perc_fauna_para_top)
+rownames(perc_fauna_para_top) <- c()
+
+
+perc_fauna_para_top$Species=c("Orange Ophiuroids",
+                              "Pink Ophiuroids",
+                              "Crab sp2",
+                              "Aplacophorans",
+                              "Anemone sp 2",
+                              "Zoanthids",
+                              "Shrimp",    
+                              "Others")                
+ 
+
+perc_fauna_para_top$Species=factor(perc_fauna_para_top$Species,
+                                    levels=c("Orange Ophiuroids",
+                              "Pink Ophiuroids",
+                              "Crab sp2",
+                              "Aplacophorans",
+                              "Anemone sp 2",
+                              "Zoanthids",
+                              "Shrimp",    
+                              "Others"))
+
+
+# To plot the dominant fauna in paramurecea
+
+ggplot(perc_fauna_para_top, aes(x="", y=perc_fauna_para_top, fill=Species))+
+   geom_bar(width = 1, stat = "identity")+
+   coord_polar("y")+
+   scale_fill_manual(values=col)+theme_void()+
+   labs(title = "Paramuricea sp B3")
+
+
+```
+
+
+
+
+```{r}
+rarecurve(F_Para[10:40], main="Paramuricea sp")
+
+```
+
+
+```{r}
+
+##To calculate absloute richness
+Richness=rowSums(F_Mat_sqrt)
+
+##To calculate expected richness
+Chao1=estimateR(round(F_Mat_sqrt))[2,]
+
+
+
+##To calculate inverse Simpson eveness
+Inverse_Simpson=diversity(F_Mat_sqrt, "inv")
+
+
+##To calculate Shannon index
+Shannon=diversity(F_Mat_sqrt, "shannon")
+
+##To bind diversity scores (columns) to OTU metadata as a dataframe
+F_div= cbind(F_Meta,Chao1,Shannon,Inverse_Simpson, Richness)
+```
+
+
+
+```{r}
+
+F_div1=gather(F_div,
+            "Index", 
+            "value", 
+            10:13)
+
+### To plot the outcome we use ggplot2
+
+F_div1$Index=factor(F_div1$Index, levels = c("Richness", "Chao1", "Inverse_Simpson", "Shannon"))
+
+
+ggplot(F_div1, aes(Visual_seep, value, color=Visual_seep))+
+  geom_boxplot(alpha=0.5)+
+  facet_wrap(Index~Species, scales = "free")+
+  theme_bw()+
+  labs(x="",y="Diversity indices values")+
+  theme(strip.text.y = element_text(size = 12, colour = "black"))+
+  theme(strip.background = element_rect(colour="black", fill="white"))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"))+
+  geom_jitter()
+
+
+
+```
+
+
+
+
+```{r}
+
+mod_R=glm(Richness~ Species*Visual_seep*Year , data=F_div)
+anova(mod_R, test = "F")
+summary(mod_R)  
+
+summary(aov(Richness~ Species*Visual_seep , data=F_div))
+
+
+hist(log(F_div$Richness))
+shapiro.test(sqrt(F_div$Richness))
+plot(resid(mod_R), F_div$Species)
+plot(mod_R)
+qqmath(mod_R)
+
+mod_R=glmer(Richness~ Species +(1|Colony), data=F_div, family = "poisson")
+
+plot(mod_R)
+qqnorm(resid(mod_R))
+```
+
+
+
+```{r}
+mod_ch=glm(Chao1~ Species*Visual_seep*Year , data=F_div)
+anova(mod_ch, test = "F")
+summary(mod_ch)
+
+summary(aov(Chao1~ Species*Visual_seep , data=F_div))
+
+mod_ch=lmer(log(Chao1)~ Species +(1|Colony), data=F_div)
+
+
+plot(mod_ch)
+qqnorm(resid(mod_ch))
+```
+
+
+
+```{r}
+mod_Sh=glm(log(Shannon)~ Species*Visual_seep*Year, data=F_div)
+anova(mod_Sh, test = "F")
+summary(mod_Sh)
+
+summary(aov(Shannon~ Species*Visual_seep , data=F_div))
+
+mod_Sh=lmer(log(Shannon)~ Species+(1|Colony), data=F_div)
+
+plot(mod_Sh)
+qqnorm(resid(mod_Sh))
+```
+
+
+```{r}
+
+mod_inv=glm(Inverse_Simpson~ Species*Visual_seep*Year , data=F_div)
+anova(mod_inv, test = "F")
+summary(mod_inv)  
+
+
+summary(aov(Inverse_Simpson~ Species*Visual_seep , data=F_div))
+
+  mod_inv=lmer(Inverse_Simpson~ Species +(1|Year), data=F_div)
+
+plot(mod_inv)
+qqnorm(resid(mod_inv))
+```
+
+
+
+```{r}
+F_div_callo15=filter(F_div, Species=="Callogorgia delta" & Year=="2015")
+
+mod_R_Callo15=glm(Inverse_Simpson~ Site*Visual_seep, data=F_div_callo15)
+anova(mod_R_Callo15, test = "F")
+summary(mod_R_Callo15)  
+
+
+F_div_callo16=filter(F_div, Species=="Callogorgia delta" & Year=="2016")
+
+mod_R_Callo16=glm(Inverse_Simpson~ Site*Visual_seep, data=F_div_callo16)
+anova(mod_R_Callo16, test = "F")
+summary(mod_R_Callo16) 
+
+
+F_div_callo17=filter(F_div, Species=="Callogorgia delta" & Year=="2017")
+
+mod_R_Callo17=glm(Inverse_Simpson~ Site*Visual_seep, data=F_div_callo17)
+anova(mod_R_Callo17, test = "F")
+summary(mod_R_Callo17) 
+
+
+```
+
+
+
+```{r}
+
+dist=vegdist(F_Mat_sqrt, "bray") #To calculate the dissimilarity distance using Bray method
+
+#require(BiodiversityR)
+#dist1=dist.zeroes(F_Mat, dist)# other method to calculate dissimilarity
+
+PCoAValue=wcmdscale(dist, eig = TRUE)
+eig=eigenvals(PCoAValue)
+summary(eig)
+
+PCoAValue=wcmdscale(dist, k=3) #To calculate PCoA values
+PCoAValue=as.data.frame(PCoAValue)  #To transfare it to data frame
+PCoAValue=cbind(PCoAValue, F_Meta)  #To import the variables
+
+```
+
+
+
+
+```{r}
+
+
+ggplot(Mega_plot, aes(x= NMDS1, y= NMDS2, color=Species, shape=Visual_seep))+
+  geom_point(size=5, alpha=0.5)+ 
+  scale_shape_manual(values=c(1,15, 16, 17,18))+
+  theme_bw()+
+  scale_color_manual(values = c('#d7191c','#fdae61'))+
+  labs(title="Associated megafauna", x="PCoA1 (60.2%)",y="PCoA2 (18.4%)")+
+  stat_ellipse()+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+```
+
+
+
+
+
+```{r}
+Mega_NMDS=metaMDS(F_Mat_sqrt,k=2,trymax=50)# To calculate NMDS using 50 trial and 2 axis will be returned 
+
+Mega_score1 <- scores(Mega_NMDS, display = "sites") # We will use this ploting
+Mega_score2 <- scores(Mega_NMDS, display = "species") # Not used in our analysis
+Mega_plot <- cbind(Mega_score1, F_Meta)
+
+
+
+
+ggplot(Mega_plot, aes(x= NMDS1, y= NMDS2, color=Species, shape=Visual_seep))+
+  geom_point(size=5, alpha=0.5)+ 
+  scale_shape_manual(values=c(1,15, 16, 17,18))+
+  theme_bw()+
+  scale_color_manual(values = c('#d7191c','#fdae61'))+
+  labs(title="Associated megafauna", x="NMDS1",y="NMDS2")+
+  stat_ellipse()+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+
+
+
+
+
+```{r}
+adonis(dist ~ Species*Visual_seep, data = F_Meta, permutations = 9999)
+```
+
+
+
+
+```{r}
+ano=anosim(dist,F_Meta$Seepiness, permutations = 9999 )
+
+summary(ano)
+plot(ano)
+
+
+clus=meandist(dist, F_Meta$Seepiness)
+
+plot(clus)
+```
+
+
+
+
+```{r}
+F_Callo_sq=filter(Mega_sq, Species=="Callogorgia delta")
+F_Callo_2015=filter(F_Callo_sq, Year=="2015")
+F_Callo_2016=filter(F_Callo_sq, Year=="2016")
+F_Callo_2017=filter(F_Callo_sq, Year=="2017")
+
+F_Para_sq=filter(Mega_sq, Species=="Paramuricea B3 ")
+F_Para_2015=filter(F_Para_sq, Year=="2015")
+F_Para_2016=filter(F_Para_sq, Year=="2016")
+```
+
+
+
+
+```{r}
+adonis(F_Callo_sq[,10:40] ~ Site+factor(Year)+Visual_seep, data = F_Callo_sq, permutations = 9999)
+```
+
+
+
+
+```{r}
+adonis(F_Callo_2015[,10:40] ~ Site*Visual_seep, data = F_Callo_2015, permutations = 9999)
+
+```
+
+```{r}
+adonis(F_Callo_2016[,10:40] ~ Site*Visual_seep, data = F_Callo_2016, permutations = 9999)
+```
+
+
+```{r}
+adonis(F_Callo_2017[,10:40] ~ Site*Visual_seep, data = F_Callo_2017, permutations = 9999)
+```
+
+
+
+
+```{r}
+PCoAValue_callo=wcmdscale(dist_callo, k=3, eig=TRUE)
+eig_callo=eigenvals(PCoAValue_callo)
+#summary(eig_callo)
+
+
+
+PCoAValue_callo=wcmdscale(dist_callo, k=3) #To calculate PCoA values
+PCoAValue_callo=as.data.frame(PCoAValue_callo)  #To transfare it to data frame
+PCoAValue_callo=cbind(PCoAValue_callo, F_Callo_sq[,1:9])  #To import the variables
+
+```
+
+
+
+
+```{r}
+
+FC_plot=ggplot(PCoAValue_callo, aes(x= V1, y= V2, color=Visual_seep, shape=Visual_seep))+
+  geom_point(size=5, alpha=0.7)+
+  scale_shape_manual(values=c(15, 16))+
+  theme_bw()+
+  labs(x="PCoA1 (44.7%)",y="PCoA2 (34.4%)", title = "C. delta")+
+  stat_ellipse()+theme_bw()+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
+  theme(legend.position = "none")
+
+FC_plot
+```
+
+
+
+```{r}
+adonis(F_Para_sq[,10:40] ~ factor(Year)*Visual_seep, data = F_Para_sq, permutations = 9999)
+```
+
+
+
+```{r}
+adonis(F_Para_2015[,10:40] ~ Visual_seep, data = F_Para_2015, permutations = 9999)
+```
+
+
+```{r}
+adonis(F_Para_2016[,10:40] ~ Visual_seep, data = F_Para_2016, permutations = 9999)
+```
+
+
+
+```{r}
+dist_para=vegdist(F_Para_sq[,10:40], "bray")
+```
+
+
+
+
+```{r}
+
+PCoAValue_para=wcmdscale(dist_para, k=3, eig=TRUE)
+eig_para=eigenvals(PCoAValue_para)
+#summary(eig_para)
+
+
+
+PCoAValue_para=wcmdscale(dist_para, k=3) #To calculate PCoA values
+PCoAValue_para=as.data.frame(PCoAValue_para)  #To transfare it to data frame
+PCoAValue_para=cbind(PCoAValue_para, F_Para[,1:9])  #To import the variables
+
+```
+
+
+
+
+```{r}
+
+FP_plot=ggplot(PCoAValue_para, aes(x= V1, y= V2, color=Visual_seep, shape=Visual_seep))+
+  geom_point(size=5, alpha=0.7)+
+  scale_shape_manual(values=c(15, 16))+
+  theme_bw()+
+  labs(x="PCoA1 (38.6%)",y="PCoA2 (25%)", title = "Paramuricea sp B3")+
+  stat_ellipse()+
+  theme_bw()+theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+FP_plot
+```
+
+
+
+```{r}
+
+require(gridExtra)
+
+grid.arrange(FC_plot,FP_plot,  ncol=2)
+
+```
+
+
+
+
+# TO TEST the brittle star abundnaces 
+
+```{r}
+# C.delta
+
+F_Callo_ouph=filter(Mega_fauna, Species=="Callogorgia delta", Site != "GC249") #to see change in the relative abundnace of brittle stars ONLY between seep and non seep.We removed GC249 which had only seep markersand no seep markers
+
+F_Callo_ouph_mat=t(apply(F_Callo_ouph[,10:40], 1, function(x)(x)*100/(sum(x)))) # relative abundnace Calc
+
+F_Callo_ouph= cbind(F_Callo_ouph[,1:9], F_Callo_ouph_mat)# Mat and Meta
+
+ouph_callo=F_Callo_ouph[,1:12]# subset the data
+head(ouph_callo)
+
+ouph_callo$sum=rowMeans(ouph_callo[,10:12], na.rm = F)# to sum all brittle star species 
+#head(ouph_callo)sanity check
+
+
+#To plot
+ggplot(ouph_callo, aes(Visual_seep, sum))+
+  geom_boxplot(alpha=0.5)+geom_jitter()+
+  facet_wrap(~Site, scales = "free")+
+  theme_bw()+
+  labs(x="",y="Relative abundnace %")+
+  theme(strip.text.y = element_text(size = 12, colour = "black"))+
+  theme(strip.background = element_rect(colour="black", fill="white"))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"))
+  
+
+
+
+
+#glm
+ouph_callo_mod=glm(sum~ Visual_seep*Site , data=ouph_callo)
+summary(ouph_callo_mod)
+anova(ouph_callo_mod, test = "F")
+
+
+#glmm
+ouph_callo_mod2=lmer(sum~ Visual_seep +(1|Colony), data=ouph_callo)
+summary(ouph_callo_mod2)
+anova(ouph_callo_mod2, test="F")
+
+
+```
+
+
+
+
+
+```{r}
+#Paramuricea sp
+
+ouph_para_mat=t(apply(F_Para[,10:40], 1, function(x)(x)*100/(sum(x)))) # relative abundnace Calculation
+
+ouph_para= cbind(F_Para[,1:9], ouph_para_mat)# Mat and Meta
+
+ouph_para=ouph_para[,c(1:9,33,34)]# subset the data
+head(ouph_para)
+
+
+ouph_para$sum=rowMeans(ouph_para[ ,10:11], na.rm = F)
+head(ouph_para)#sanity check
+
+
+#To plot
+ggplot(ouph_para, aes(Visual_seep, sum))+
+  geom_boxplot(alpha=0.5)+geom_jitter()+
+  theme_bw()+
+  labs(x="",y="Relative abundnace %")+
+  theme(strip.text.y = element_text(size = 12, colour = "black"))+
+  theme(strip.background = element_rect(colour="black", fill="white"))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+panel.background = element_blank(), axis.line = element_line(colour = "black"))
+
+
+
+#glm
+ouph_para_mod=glm(sum~ Visual_seep*Year , data=ouph_para)
+summary(ouph_para_mod)
+anova(ouph_para_mod, test = "F")
+
+
+##glmm
+ouph_mod2=lmer(sum~ Visual_seep +(1|Colony), data=ouph_para)
+summary(ouph_mod2)
+anova(ouph_mod2, test="F")
+```
+
