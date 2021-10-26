@@ -1,0 +1,100 @@
+---
+title: "branch loss"
+author: "E.O. Osman"
+date: "6/5/2020"
+output: html_document
+---
+---
+title: "Branch loss"
+output:
+  html_document:
+    df_print: paged
+---
+
+# Branch loss
+```{r}
+branch.loss <- read.csv("D:/Deep Sea Coral Project/16S Data/Seep_Data/Seep R Project/Seep project/Seep Microbiome_R code/Seep project_final/Deep-Sea-Microbiome/Data/branch loss.csv")
+```
+
+
+
+```{r}
+require(ggplot2)
+require(tidyr)
+require(dplyr)
+require(lme4)
+require(afex)#To provide p values for LMEM
+```
+
+
+##To visualize the variance between species
+```{r}
+
+col_seep=c('#fdc086','#35978f')
+
+
+ggplot(branch.loss, aes(Species, vanished.branches, fill=Visual_seep))+
+geom_boxplot(outlier.shape = NA)+
+scale_fill_manual(values = col_seep)+
+theme_bw()+
+geom_point(size=5,alpha=0.3, position = position_jitterdodge(0.3))+
+theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
+labs(title = "Branch loss", y="Proportion of branch loss per colony (%)", x="")+
+theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+
+##To test the variation between species using GLM
+```{r}
+#GLM model
+BL_mod=glm(vanished.branches~Species*Visual_seep, data = branch.loss, family = "quasibinomial")
+summary(BL_mod)
+anova(BL_mod, test = "F")
+```
+
+#Callogorgia delta 
+```{r}
+# Callogorgia delta
+
+BL_callo=filter(branch.loss, Species=="Callogorgia delta")
+
+summary(BL_callo$vanished.branches)
+sd(BL_callo$vanished.branches)
+
+ggplot(BL_callo, aes(Visual_seep, vanished.branches, fill=Visual_seep))+geom_boxplot()+facet_wrap(Site~., scales = "free")+theme_bw()+geom_jitter(shape=16,alpha=0.4,size=5, position=position_jitter(0.2))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
+  theme(strip.background =element_rect(fill="white"))+
+  labs(y="Proportion of branch loss (%)", x="")
+```
+
+
+## GLM to test the variation between seep and non-seep
+```{r}
+
+BL_callo_mod=glm(vanished.branches~Visual_seep*Site, data = BL_callo, family = "quasibinomial")
+summary(BL_callo_mod)
+anova(BL_callo_mod, test = "F")
+```
+
+
+
+
+
+# Paramuricea
+```{r}
+# Paramuricea
+BL_para=filter(branch.loss, Species=="Paramuricea Sp. B3")
+
+mean(BL_para$vanished.branches)# 9.477751e-05
+sd(BL_para$vanished.branches)# 0.0005607113
+
+
+BL_para_mod=glm(vanished.branches~Visual_seep, data = BL_para,family = "quasibinomial")
+summary(BL_para_mod)
+anova(BL_para_mod, test = "F")
+
+```
+
+
+
