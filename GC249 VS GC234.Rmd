@@ -1,0 +1,113 @@
+---
+title: "GC249 vs GC234"
+author: "E.O. Osman"
+date: "9/9/2020"
+output: html_document
+---
+
+```{r}
+require(readxl)
+require(ggplot2)
+require(tidyr)
+require(dplyr)
+require(vegan)
+```
+
+
+```{r}
+df <- read_excel("Data/df_final.xlsx")
+df_GC234=filter(df, Site =="GC234"& Species=="Callogorgia_delta", Seepage_level=="Moderate Non-Seep" )
+
+df_GC249=filter(df, Site =="GC249"& Species=="Callogorgia_delta")
+
+df_GC=rbind(df_GC234, df_GC249)
+Meta_GC=df_GC[,1:28]
+Mat_GC=df_GC[,29:8630]
+
+
+Mat_perc_GC=t(apply(Mat_GC, 1, function(x)(x)*100/(sum(x))))
+
+Mat_perc_GC=round(Mat_perc_GC, digits = 0) # To remove decimal 
+```
+
+
+#Alpha diversity
+
+
+```{r}
+##### let's calculate each diversity index
+
+## To calculate richness using choal index-it works using estimateR and ‘2’ means extract chao1 out of the analysis
+Choa1_GC=estimateR(Mat_perc_GC)[2,]
+
+##To calculate Shannon index
+Shannon_GC=diversity(Mat_perc_GC, "shannon")
+
+##To calculate inverse Simpson eveness
+Inverse_Simpson_GC=diversity(Mat_perc_GC, "inv")
+
+##To bind diversity scores (columns) to OTU metadata as a dataframe
+div_GC= cbind(Meta_GC, Choa1_GC, Inverse_Simpson_GC,Shannon_GC)
+```
+
+
+
+```{r}
+anova(glm(Choa1_GC ~ Visual_seep, data = div_GC), test = "F")
+```
+
+
+
+
+```{r}
+anova(glm(Inverse_Simpson_GC ~ Visual_seep, data = div_GC), test = "F")
+```
+
+
+```{r}
+anova(glm(Shannon_GC ~ Visual_seep, data = div_GC), test = "F")
+```
+
+#Beta diversity
+
+```{r}
+adonis(Mat_GC~ Visual_seep, data=Meta_GC, permutations=9999)
+```
+
+
+
+```{r}
+dist_perc_GC=vegdist(Mat_perc_GC, "bray") #To calculate the similarity distance using Bray method
+
+
+
+PCoAValue_perc_eig_GC=wcmdscale(dist_perc_GC, k=3, eig=TRUE)
+eig_perc_GC=eigenvals(PCoAValue_perc_eig_GC)
+
+#summary(eig_perc_GC) - First three axis
+#                         [,1]   [,2]    [,3]    
+#Eigenvalue            0.9134 0.2804 0.05956 
+#Proportion Explained  0.6996 0.2148 0.04562
+
+
+
+
+PCoAValue_perc_GC=wcmdscale(dist_perc_GC, k=3) #To calculate PCoA values
+PCoAValue_perc_GC=as.data.frame(PCoAValue_perc_GC)  #To transfare it to data frame
+PCoAValue_perc_GC=cbind(PCoAValue_perc_GC, Meta_GC)  #To import the variables
+
+
+col_seep=c('#fdc086','#35978f')
+
+
+ggplot(PCoAValue_perc_GC, aes(V1, V3, color=Visual_seep, shape=Site))+
+  geom_point(size=5, alpha=0.5)+
+  theme_bw()+
+  scale_color_manual(values = col_seep)+
+  labs(x="PCoA1 (70%)",y="PCoA2 (21.5%)")+
+  stat_ellipse()+
+  theme(legend.position = c(0.9,0.75))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+```
+
+
