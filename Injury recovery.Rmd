@@ -1,0 +1,113 @@
+---
+title: "Recovry from injury"
+author: "E.O. Osman"
+date: "2/3/2020"
+output: html_document
+---
+
+#Recovry from injury
+
+```{r}
+require(readxl)
+require(ggplot2)
+require(tidyr)
+require(dplyr)
+require(lme4)
+require(afex)#To provide p value for LMEM
+```
+
+```{r}
+Injury <- read.csv("D:/Deep Sea Coral Project/16S Data/Seep_Data/Seep R Project/Seep project/Seep Microbiome_R code/Seep project_final/Deep-Sea-Microbiome/Data/Injury.csv")
+```
+
+## to plot the difference of recovery rates between species
+```{r}
+col_seep=c('#fdc086','#35978f')
+
+ggplot(Injury, aes(Species, Annual_growth, fill=Visual_seep))+
+  geom_boxplot(outlier.shape = NA)+ 
+  geom_point(size=5,alpha=0.3, position = position_jitterdodge(0.3))+
+  theme_bw()+theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
+  labs(title = "Injury recovery", y="Annual continous growth rate (%)", x="")+
+  scale_fill_manual(values =col_seep)+
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+```
+
+
+##GLM
+```{r}
+Inj_mod=glm(Annual_growth~ Species* Visual_seep, data = Injury, family = "quasibinomial")
+summary(Inj_mod)
+anova(Inj_mod, test = "F")
+```
+
+
+#Callogorgia delta
+```{r}
+Inj_callo=filter(Injury, Species=="Callogorgia delta")
+summary(Inj_callo$Annual_growth)
+sd(Inj_callo$Annual_growth)
+
+
+Inj_callo_mod=glm(Annual_growth~Visual_seep*Site, data=Inj_callo, family = "quasibinomial")
+summary(Inj_callo_mod)
+anova(Inj_callo_mod, test = "F")
+
+
+
+ggplot(Inj_callo, aes(Species, Annual_growth, fill=Visual_seep))+geom_boxplot()+theme_bw()+geom_jitter(shape=16,alpha=0.4,size=5, position=position_jitter(0.2))+facet_wrap(Site~.)+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
+  labs(title = "Injury recovery", y="Annual continous growth rate (%)", x="")
+```
+
+
+## correlation with d13C 
+```{r}
+mod_injc13_callo=lm(d13c~Annual_growth, data = Inj_callo)
+summary(mod_injc13_callo)
+```
+
+
+```{r}
+ggplot(Inj_callo, aes(d13c, Annual_growth))+geom_point(size=4, alpha=0.5)+geom_smooth(method = "lm")+theme_bw()+labs(title="Adjusted R-squared= -0.07, p=0.7", y=" Regrowth proportion (%)", x="d13C")
+```
+
+
+
+## correlation with d15N
+```{r}
+mod_injN15_callo=lm(d15n~Annual_growth, data = Inj_callo)
+summary(mod_injN15_callo)
+```
+
+```{r}
+ggplot(Inj_callo, aes(d15n, Annual_growth))+geom_point(size=4, alpha=0.5)+geom_smooth(method = "lm")+theme_bw()+labs(title="Adjusted R-squared= -0.09, p=0.9", y=" Regrowth proportion (%)", x="d15NC")
+```
+
+
+
+#Paramuricea Sp. B3
+```{r}
+Inj_para=filter(Injury, Species=="Paramuricea Sp. B3")
+summary(Inj_para$Annual_growth)
+sd(Inj_para$Annual_growth)
+
+Inj_para_mod=glm(Annual_growth~Visual_seep, data=Inj_para, family = "quasibinomial")
+summary(Inj_para_mod)
+anova(Inj_para_mod, test = "F")
+
+```
+
+
+## correlation with d13C
+```{r}
+mod_injc13_parao=lm(d13c~Annual_growth, data = Inj_para)
+summary(mod_injc13_parao)
+```
+
+
+```{r}
+ggplot(Inj_para, aes(d13c, Annual_growth))+geom_point(size=4, alpha=0.5)+geom_smooth(method = "lm")+theme_bw()+labs(title="Adjusted R-squared= -0.07, p=0.7", y=" Regrowth proportion (%)", x="d13C")
+```
+
