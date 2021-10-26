@@ -1,0 +1,608 @@
+---
+title: "Alpha diversity - MCMCglmm"
+author: "E.O. Osman"
+date: "11/29/2019"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+
+
+
+
+```{r}
+require(readxl)       #import excel files
+require(ggplot2)      #plots and graphics
+require(vegan)        #community analysis
+require(tidyr)        #data handling
+require(dplyr)        #data handling
+require(lme4)         #Linear mixed effect model
+require(MASS)         #To aplly glmmPQL model
+require(MCMCglmm)     #To perform MCMCglmm modle
+```
+
+
+
+
+
+We get a sense now on how data looks like, sequence yield, and taxonomical profile, but we need to see how the microbiome diversity changes between sites, species and seepage
+
+
+```{r}
+## to import excel file
+
+df <- read_excel("Data/df_final.xlsx")
+Meta=df[,1:28]
+Mat=df[,29:8630]
+
+```
+
+
+```{r}
+
+Mat_perc=t(apply(Mat, 1, function(x)(x)*100/(sum(x))))  # To generate a proportions table for summarizing
+#rowSums(Mat_perc)   # sanity check to see all our rows equal 100
+
+Mat_perc=round(Mat_perc, digits = 0) # To remove decimal 
+
+```
+
+
+
+
+**alpha diversity**
+This analysis is to calcualte alpha diversity indecies. We must call vegan library to do this job for us
+
+```{r}
+
+##### let's calculate each diversity index
+
+## To calculate richness using choal index-it works using estimateR and ‘2’ means extract chao1 out of the analysis
+Choa1=estimateR(Mat_perc)[2,]
+
+##To calculate Shannon index
+Shannon=diversity(Mat_perc, "shannon")
+
+##To calculate inverse Simpson eveness
+Inverse_Simpson=diversity(Mat_perc, "inv")
+
+##To bind diversity scores (columns) to OTU metadata as a dataframe
+div= cbind(Meta,Choa1,Inverse_Simpson,Shannon)
+
+##To wirte the diversity output as a csv file for archive and later analysis
+#write.csv(div, "OTU_diveristy.csv")
+
+
+```
+
+
+
+
+To plot diversity index scores
+
+First, we need to make all diversity index as a single variable within dataframe. This will enable us to use facet function to plot all index in one plot. 
+
+## to gather all index in one column under column name called value
+div1=gather(div,
+            "Index", 
+            "value", 
+            29:31)
+
+### To plot the outcome we use ggplot2
+
+col=c('#7fc97f','#beaed4','#fdc086','#ffff99','#386cb0','#f0027f','#bf5b17')
+
+#ggplot(div1, aes(Species, value, fill=Visual_seep))+
+  #geom_boxplot()+
+  #geom_jitter(shape=16,alpha=0.4, position=position_jitter(0.2))+
+  #facet_grid(Index~ .,scales = "free")+
+  #theme_bw()+
+  #labs(x="",y="Diversity indices values")+
+  #theme(axis.text.x =element_text(face="italic",   size=12,    angle = 90,    vjust = 0.6))+
+  #theme(strip.text.y = element_text(size = 12, colour = "black"))+
+  #theme(strip.background = element_rect(colour="black", fill="white"))+
+  #theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+#panel.background = element_blank(), axis.line = element_line(colour = "black"))
+
+```
+
+
+#Statistical analysis of Alpha diversity
+
+
+let's chack the statitical significance between our samples. First, data is not normally distributed and we will go for linear mixed effect model
+
+
+For alpha diversity analysis, we need to measure statsitical difference between; 1) richness, 2) evenness, and 3)biodiversity. We have the following:
+1- Uneven samples between categories
+2- Several random effect variables (season, preservation methods, extraction method, sequence patch)
+3- Cross randome effect, not nested with variables
+
+
+So, we had two options, glmmPQL or MCMCglmm models, and we decided to use MCMCglmm baysian models to test alpha diversity. To do so, we need to set the periors as the following;
+
+```{r}
+prior = list(R = list(V1 = 1e-16, nu=1), # To set periors for resdiual(R)for fixed effects 
+             G = list(G1 = list(V = 1e-16, n = 1), # To set periors for each random effect variables
+                      G2 = list(V = 1e-16, n = 1),
+                      G3 = list(V = 1e-16, n = 1), 
+                      G4 = list(V = 1e-16, n = 1)))
+```
+
+
+##Choa1
+```{r}
+m11_ch=MCMCglmm(Choa1 ~ Species+factor(Year)+Visual_seep, random=~ Preservation + Run+ Season + ExtractionProcedure, data=div, burnin = 20000,thin = 100, nitt = 2000000, verbose=FALSE,prior = prior)
+
+summary(m11_ch)
+```
+
+To visualize posterior 
+```{r}
+plot(m11_ch$Sol) #Sol is our fixed effect
+```
+
+
+
+
+##Inverse Simpson
+```{r}
+m11_inv=MCMCglmm(Inverse_Simpson ~ Species+factor(Year)+Visual_seep, random=~ Preservation + Run+ Season + ExtractionProcedure, data=div, burnin = 20000,thin = 100, nitt = 2000000, verbose=FALSE,prior = prior)
+
+summary(m11_inv)
+```
+
+
+
+```{r}
+plot(m11_inv$Sol)
+```
+
+
+
+
+##Shannon diversity 
+```{r}
+m11_sh=MCMCglmm(Shannon ~ Species+factor(Year)+Visual_seep, random=~ Preservation + Run+ Season + ExtractionProcedure, data=div, burnin = 20000,thin = 100, nitt = 2000000, verbose=FALSE,prior = prior)
+
+
+summary(m11_sh) 
+```
+
+
+```{r}
+plot(m11_sh$Sol)
+```
+
+
+
+So, now we checked difference in alpha diversity between bacterial communities globally, but we need to investigate each site and coral species separatly. Therefore, we will slite data accordingly. 
+
+
+
+
+
+
+```{r}
+div_callo=filter(div, Species=="Callogorgia_delta")#n=88
+div_para=filter(div, Species=="Paramuricea_sp._B3")#22
+div_wat=filter(div, Species=="Seawater")#n=29 
+div_sedi=filter(div, Species=="Sediment")#n=45
+
+```
+
+
+
+
+#Callogorgia_delta
+All C. delta samples were extracted useing powersoil DNA kit, and then extraction method was removed from random effect, and perior set accordingly (3 random effect not 4). We will follow each MCMCGLMM by GLM model to confirm the result. We used GLM to neglect all random effect to see how these influnce the results. 
+```{r}
+
+prior_callo = list(R = list(V1 = 1e-16, nu=1), # To set periors for resdiual(R)for fixed effects 
+             G = list(G1 = list(V = 1e-16, n = 1), # To set periors for each random effect variables
+                      G2 = list(V = 1e-16, n = 1),
+                      G3 = list(V = 1e-16, n = 1)))
+
+##Chao1
+callo_ch=MCMCglmm(Choa1 ~ Site*factor(Year)*Visual_seep, random=~ Preservation + Run+ Season , data=div_callo, burnin = 20000,thin = 100, nitt = 1000000, verbose=FALSE,prior = prior_callo)
+summary(callo_ch)
+
+
+#GLM
+summary(glm(Choa1 ~ Site*factor(Year)*Visual_seep, data=div_callo))
+
+
+
+
+
+##Inverse Simpson
+callo_inv=MCMCglmm(Inverse_Simpson ~ Site+factor(Year)+Visual_seep, random=~ Preservation + Run+ Season , data=div_callo, burnin = 20000,thin = 100, nitt = 1000000, verbose=FALSE,prior = prior_callo)
+summary(callo_inv)
+
+
+#GLM
+summary(glm(Inverse_Simpson ~ Site*factor(Year)*Visual_seep, data=div_callo))
+
+
+
+##Shannon
+callo_sh=MCMCglmm(Shannon ~ Site+factor(Year)+Visual_seep, random=~ Preservation + Run+ Season, data=div_callo, burnin = 20000,thin = 100, nitt = 1000000, verbose=FALSE,prior = prior_callo)
+summary(callo_sh)
+
+
+#GLM
+summary(glm(Shannon ~ Site*factor(Year)*Visual_seep, data=div_callo))
+
+
+
+```
+
+
+#Paramuricea sp B3
+Paramuricea_sp._B3 was collected only from one site, and then we removed site from the model. Also, all Paramuricea_sp._B3 were preserved in liquied nitrogen and extracted by only powersoil DNA kit and sequenced in a single run. So, these removed from the random effect on the model
+
+```{r}
+
+prior_para = list(R = list(V1 = 1e-16, nu=1), # To set periors for resdiual(R)for fixed effects 
+             G = list(G1 = list(V = 1e-16, n = 1))) # To set periors for each random effect variabl
+
+
+
+##Chao1
+para_ch=MCMCglmm(Choa1 ~ factor(Year)+Visual_seep, random=~ Season, data=div_para, burnin = 20000,thin = 100, nitt = 1000000, verbose=FALSE,prior = prior_para)
+summary(para_ch)
+
+#GLM
+summary(glm(Choa1 ~ factor(Year)+Visual_seep, data=div_para))
+
+
+
+
+##Inverse Simpson
+para_inv=MCMCglmm(Inverse_Simpson ~ factor(Year)+Visual_seep, random=~ Season, data=div_para, burnin = 20000,thin = 100, nitt = 1000000, verbose=FALSE,prior = prior_para)
+summary(para_inv)
+
+
+#GLM
+summary(glm(Inverse_Simpson ~ factor(Year)*Visual_seep, data=div_para))
+
+
+
+
+
+#Shannon
+para_sh=MCMCglmm(Shannon ~ factor(Year)+Visual_seep, random=~ Season, data=div_para, burnin = 20000,thin = 100, nitt = 1000000, verbose=FALSE,prior = prior_para)
+summary(para_sh)
+
+
+#GLM
+summary(glm(Shannon ~ factor(Year)*Visual_seep, data=div_para))
+
+```
+
+
+
+
+#Sediment
+```{r}
+prior_sedi = list(R = list(V1 = 1e-16, nu=1), # To set periors for resdiual(R)for fixed effects 
+             G = list(G1 = list(V = 1e-16, n = 1), # To set periors for each random effect variables
+                      G2 = list(V = 1e-16, n = 1)))
+
+#Chao1
+sedi_ch=MCMCglmm(Choa1 ~ Site+factor(Year)+Visual_seep, random=~  Run+ Season, data=div_sedi, burnin = 20000,thin = 100, nitt = 1000000, verbose=FALSE,prior = prior_sedi)
+summary(sedi_ch)
+
+#GLM
+summary(glm(Choa1 ~ Site*factor(Year)*Visual_seep, data=div_sedi))
+
+
+
+
+#Inverse Simpson
+sedi_inv=MCMCglmm(Inverse_Simpson ~ Site+factor(Year)+Visual_seep, random=~ Run+ Season, data=div_sedi, burnin = 20000,thin = 100, nitt = 1000000, verbose=FALSE,prior = prior_sedi)
+
+summary(sedi_inv)
+
+#GLM
+summary(glm(Inverse_Simpson ~ Site*factor(Year)*Visual_seep, data=div_sedi))
+
+
+
+
+
+#Shannon
+sedi_sh=MCMCglmm(Shannon ~ Site+factor(Year)+Visual_seep, random=~ Run+ Season, data=div_sedi, burnin = 20000,thin = 100, nitt = 1000000, verbose=FALSE,prior = prior_sedi)
+summary(sedi_sh)
+
+#GLM
+summary (glm(Shannon ~ Site+factor(Year)+Visual_seep,data=div_sedi))
+
+```
+
+
+
+**Seawater**
+```{r}
+prior_wat = list(R = list(V1 = 1e-16, nu=1), # To set periors for resdiual(R)for fixed effects 
+             G = list(G1 = list(V = 1e-16, n = 1), # To set periors for each random effect variables
+                      G2 = list(V = 1e-16, n = 1), 
+                      G3 = list(V = 1e-16, n = 1)))
+
+##Chao1
+
+#MCMCGLMM
+wat_ch=MCMCglmm(Choa1 ~ factor(Year)+Visual_seep, random=~  Run+ Season+ExtractionProcedure, data=div_wat, burnin = 20000,thin = 100, nitt = 1000000, verbose=FALSE,prior = prior_wat)
+summary(wat_ch)
+
+
+#GLM
+summary(glm(Choa1 ~ factor(Year)*Visual_seep, data=div_wat))
+
+
+
+
+#Inverse Simpson
+wat_inv=MCMCglmm(Inverse_Simpson ~ factor(Year)+Visual_seep, random=~ Run+ Season+ExtractionProcedure, data=div_wat, burnin = 20000,thin = 100, nitt = 1000000, verbose=FALSE,prior = prior_wat)
+summary(wat_inv)
+
+#GLM
+summary(glm(Inverse_Simpson ~ factor(Year)*Visual_seep, data=div_wat))
+
+
+
+#Shannon
+wat_sh=MCMCglmm(Shannon ~ factor(Year)+Visual_seep, random=~ Run+ Season+ExtractionProcedure, data=div_wat, burnin = 20000,thin = 100, nitt = 1000000, verbose=FALSE,prior = prior_wat)
+summary(wat_sh)
+
+
+
+#GLM
+summary(glm(Shannon ~ factor(Year)*Visual_seep, data=div_wat))
+
+
+
+```
+
+
+
+
+
+
+
+###Let's start with **sites**.
+
+
+```{r}
+GC234_div=filter(div, Site=="GC234") #n=46 samples
+GC249_div=filter(div, Site=="GC249") #n=10 samples
+MC751_div=filter(div, Site=="MC751") #n=48
+MC885_div=filter(div, Site=="MC885") #n=45
+AT357_div=filter(div, Site=="AT357") #n=35
+```
+
+
+
+
+
+
+
+
+
+
+
+**GC234**
+
+```{r}
+#Chao1
+
+GC234_ch=MCMCglmm(Choa1 ~ Species+factor(Year)+Seepage_level, random=~ Preservation + Run+ Season + ExtractionProcedure, data=GC234_div, burnin = 20000,thin = 100, nitt = 1000000, verbose=FALSE,prior = prior)
+
+summary(GC234_ch)
+
+
+
+#Inverse Simpson
+GC234_inv=MCMCglmm(Inverse_Simpson ~ Species+factor(Year)+Seepage_level, random=~ Preservation + Run+ Season + ExtractionProcedure, data=GC234_div, burnin = 20000,thin = 100, nitt = 1000000, verbose=FALSE,prior = prior)
+
+summary(GC234_inv)
+
+
+
+
+#Shannon
+GC234_sh=MCMCglmm(Shannon ~ Species+factor(Year)+Seepage_level, random=~ Preservation + Run+ Season + ExtractionProcedure, data=GC234_div, burnin = 20000,thin = 100, nitt = 1000000, verbose=FALSE,prior = prior)
+
+summary(GC234_sh)
+
+```
+
+
+
+**GC249*
+This site was vistited only in 2017 and was so seepay and only hase "has only "moderate seepage level" cateigory, so we cannot test effect of seepage and year on this site. 
+```{r}
+
+#Chao1
+GC249_ch=MCMCglmm(Choa1 ~ Species, random=~ Preservation + Run+ Season + ExtractionProcedure, data=GC249_div, burnin = 20000,thin = 100, nitt = 1000000, verbose=FALSE,prior = prior)
+
+summary(GC249_ch)
+
+
+
+#Inverse Simpson
+GC249_inv=MCMCglmm(Inverse_Simpson ~ Species, random=~ Preservation + Run+ Season + ExtractionProcedure, data=GC249_div, burnin = 20000,thin = 100, nitt = 1000000, verbose=FALSE,prior = prior)
+
+summary(GC249_inv)
+
+
+
+
+#Shannon
+GC249_sh=MCMCglmm(Shannon ~ Species, random=~ Preservation + Run+ Season + ExtractionProcedure, data=GC249_div, burnin = 20000,thin = 100, nitt = 1000000, verbose=FALSE,prior = prior)
+
+summary(GC249_sh)
+
+```
+
+
+
+**MC751**
+```{r}
+
+#Chao1
+MC751_ch=MCMCglmm(Choa1 ~ Species+factor(Year)+Seepage_level, random=~ Preservation + Run+ Season + ExtractionProcedure, data=MC751_div, burnin = 20000,thin = 100, nitt = 1000000, verbose=FALSE,prior = prior)
+
+summary(MC751_ch)
+
+
+
+#Inverse Simpson
+MC751_inv=MCMCglmm(Inverse_Simpson ~ Species+factor(Year)+Seepage_level, random=~ Preservation + Run+ Season + ExtractionProcedure, data=MC751_div, burnin = 20000,thin = 100, nitt = 1000000, verbose=FALSE,prior = prior)
+
+summary(MC751_inv)
+
+
+
+
+#Shannon
+MC751_sh=MCMCglmm(Shannon ~ Species+factor(Year)+Seepage_level, random=~ Preservation + Run+ Season + ExtractionProcedure, data=MC751_div, burnin = 20000,thin = 100, nitt = 1000000, verbose=FALSE,prior = prior)
+
+summary(MC751_sh)
+
+
+```
+
+
+
+
+**MC885**
+```{r}
+
+#Chao1
+MC885_ch=MCMCglmm(Choa1 ~ Species+factor(Year)+Seepage_level, random=~ Preservation + Run+ Season + ExtractionProcedure, data=MC885_div, burnin = 20000,thin = 100, nitt = 1000000, verbose=FALSE,prior = prior)
+
+summary(MC885_ch)
+
+
+
+#Inverse Simpson
+MC885_inv=MCMCglmm(Inverse_Simpson ~ Species+factor(Year)+Seepage_level, random=~ Preservation + Run+ Season + ExtractionProcedure, data=MC885_div, burnin = 20000,thin = 100, nitt = 1000000, verbose=FALSE,prior = prior)
+
+summary(MC885_inv)
+
+
+
+
+#Shannon
+MC885_sh=MCMCglmm(Shannon ~ Species+factor(Year)+Seepage_level, random=~ Preservation + Run+ Season + ExtractionProcedure, data=MC885_div, burnin = 20000,thin = 100, nitt = 1000000, verbose=FALSE,prior = prior)
+
+summary(MC885_sh)
+
+
+```
+
+
+
+**AT357**
+```{r}
+
+#Chao1
+AT357_ch=MCMCglmm(Choa1 ~ Species+factor(Year)+Seepage_level, random=~ Preservation + Run+ Season + ExtractionProcedure, data=AT357_div, burnin = 20000,thin = 100, nitt = 1000000, verbose=FALSE,prior = prior)
+
+summary(AT357_ch)
+
+
+
+#Inverse Simpson
+AT357_inv=MCMCglmm(Inverse_Simpson ~ Species+factor(Year)+Seepage_level, random=~ Preservation + Run+ Season + ExtractionProcedure, data=AT357_div, burnin = 20000,thin = 100, nitt = 1000000, verbose=FALSE,prior = prior)
+
+summary(AT357_inv)
+
+
+
+
+#Shannon
+AT357_sh=MCMCglmm(Shannon ~ Species+factor(Year)+Seepage_level, random=~ Preservation + Run+ Season + ExtractionProcedure, data=AT357_div, burnin = 20000,thin = 100, nitt = 1000000, verbose=FALSE,prior = prior)
+
+summary(AT357_sh)
+
+
+```
+
+
+
+###Let's go and test **species**
+
+
+
+##########
+Trial using glmmPQL model
+##########
+
+
+
+```{r}
+#Chao1
+callo_ch_pql=glmmPQL(Choa1 ~ Site+factor(Year)+Seepage_level, random= list(~1| Run, ~1|Season,~1|Preservation),  data=div_callo , family = gaussian(link = "log"),verbose = FALSE)
+plot(callo_ch_pql)
+summary(callo_ch_pql)
+
+
+
+callo_inv_pql=glmmPQL(Inverse_Simpson ~ Site+factor(Year)+Seepage_level, random= list(~1| Run, ~1|Season,~1|Preservation),  data=div_callo , family = gaussian(link = "log"),verbose = FALSE)
+plot(callo_inv_pql)
+summary(callo_inv_pql)
+
+
+
+callo_sh_pql=glmmPQL(Shannon+1 ~ Site+factor(Year)+Seepage_level, random= list(~1| Run, ~1|Season,~1|Preservation),  data=div_callo , family = gaussian(link = "log"),verbose = FALSE)
+plot(callo_sh_pql)
+summary(callo_sh_pql)
+```
+
+
+
+
+
+
+
+# Different technology of GLM using dropdown terms
+
+```{r}
+glm_mod=glm(Choa1 ~ Species + Site + Seepage_level + Year +
+Run + Preservation + Season + ExtractionProcedure, data = div)
+
+anova(glm_mod, test = "F")
+dropterm(glm_mod, sorted = TRUE, test = "Chisq")
+glm_mod <- stepAIC(glm_mod, trace = FALSE)
+dropterm(glm_mod, sorted = TRUE, test = "Chisq")
+
+
+```
+
+
+```{r}
+glm_mod1=glm(Inverse_Simpson ~ Species + Site + Seepage_level + Year +
+Run + Preservation + Season + ExtractionProcedure,data = div)
+
+plot(glm_mod1)
+
+anova(glm_mod1, test = "F")
+dropterm(glm_mod1, sorted = TRUE, test = "Chisq")
+glm_mod1 <- stepAIC(glm_mod1, trace = FALSE)
+dropterm(glm_mod1, sorted = TRUE, test = "Chisq")
+
+```
+
+```{r}
+glm_mod2=glm(Shannon ~ Species + Site + Seepage_level + Year +
+Run + Preservation + Season + ExtractionProcedure,data = div)
+
+anova(glm_mod2, test = "F")
+dropterm(glm_mod2, sorted = TRUE, test = "Chisq")
+glm_mod2 <- stepAIC(glm_mod2, trace = FALSE)
+dropterm(glm_mod2, sorted = TRUE, test = "Chisq")
+```
+
