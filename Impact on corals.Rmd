@@ -1,0 +1,374 @@
+---
+title: "Impact on Corals"
+author: "E.O. Osman"
+date: "1/22/2020"
+output: html_document
+---
+
+#Impact on Corals' health
+
+```{r}
+require(readxl)
+require(ggplot2)
+require(tidyr)
+require(dplyr)
+require(lme4)
+require(afex)#To provide p values for LMEM
+require(gridExtra) 
+
+```
+
+
+
+```{r}
+Impact <- read_excel("D:/Deep Sea Coral Project/16S Data/Seep_Data/Seep R Project/Seep project/Seep Microbiome_R code/Seep project_final/Deep-Sea-Microbiome/Data/Impact.xlsx")
+```
+
+
+##To plot the impact of cold seeps on coral health for each coral species (paper plot)
+
+```{r}
+# To transform the dataframe to longitudinal format
+impact_lon=gather(Impact, "Health_Status", "Health_Value", c(7:9, 13))
+
+
+# To make each health catergory as factor
+
+impact_lon$Health_Status=factor(impact_lon$Health_Status, levels = rev(c("Healthy", "Not_healthy", "Not_defined", "Colonized")))
+
+
+# The plot
+
+ggplot(impact_lon)+
+  geom_bar(aes(Visual_seep,Health_Value, fill=Health_Status), position = "fill", stat = "summary", alpha=0.7)+
+  scale_fill_manual(values=c('#ff7f00','#ffff33','#e41a1c','#4daf4a'))+
+  facet_grid(.~Species)+
+  theme_bw()+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
+  labs(title="Health status", y="Mean of coral health status (%)", x="")+
+  guides(fill = guide_legend(reverse = TRUE))+
+  theme(strip.background =element_rect(fill="white"))+
+  theme(plot.title = element_text(hjust = 0.5))
+
+  
+```
+
+
+
+
+
+
+##To plot the impact of cold seep on each health category within each coral species
+
+```{r}
+
+# Not healthy
+ggplot(Impact)+ geom_bar(aes(Visual_seep, Impact$Not_healthy), position = "dodge", stat = "summary")+facet_grid( ~ Species, scales = "free")+theme_bw()+labs(title="Not healthy", y="Coral health status (%)", x="")
+
+#Zoanthids
+ggplot(Impact)+ geom_bar(aes(Visual_seep, Impact$Zoanthids), position = "dodge", stat = "summary")+facet_grid( ~ Species, scales = "free")+theme_bw()+labs(title="Zoanthids", y="Coral health status (%)", x="")
+
+#Hydroids
+ggplot(Impact)+ geom_bar(aes(Visual_seep, Impact$Hydroids), position = "dodge", stat = "summary")+facet_grid( ~ Species, scales = "free")+theme_bw()+labs(title="Hydroids", y="Coral health status (%)", x="")
+
+#Mudworms
+ggplot(Impact)+ geom_bar(aes(Visual_seep, Impact$Mudworms), position = "dodge", stat = "summary")+facet_grid( ~ Species, scales = "free")+theme_bw()+labs(title="Mudworms", y="Coral health status (%)", x="")
+
+
+#Colonized
+ggplot(Impact)+ geom_bar(aes(Visual_seep, Colonized), position = "dodge", stat = "summary")+facet_grid( ~ Species, scales = "free")+theme_bw()+labs(title="All Colonies", y="Coral health status (%)", x="")
+
+
+
+#Not sure
+ggplot(Impact)+ geom_bar(aes(Visual_seep, Impact$Not_defined), position = "dodge", stat = "summary")+facet_grid( ~ Species, scales = "free")+theme_bw()
+
+
+##########
+
+# All Facet
+ggplot(impact_lon)+ geom_bar(aes(Visual_seep, Health_Value), position = "dodge", stat = "summary")+facet_grid( Health_Status~ Species, scales = "free")
+
+```
+
+
+##to plot the correlation between coral health and stable isotope values
+```{r}
+
+ggplot(Impact, aes(d13c, Healthy))+geom_point()+geom_smooth(method = "lm")+facet_wrap(.~Species, scales = "free")+theme_bw()+labs(y="Healthy propotion per colony (%)")
+
+```
+
+
+
+
+
+
+##To assess the effect of cold seeps statistcally on each health category
+
+```{r}
+
+#### Summary Stats
+
+
+## C.delta
+
+#mean and sd
+summary(Impact$Healthy[Impact$Species=="Callogorgia delta"])
+sd(Impact$Healthy[Impact$Species=="Callogorgia delta"])
+
+# C.delta mean and sd for seep and non seep
+summary(Impact$Healthy[Impact$Species=="Callogorgia delta" & Impact$Visual_seep=="Seep"],)
+summary(Impact$Healthy[Impact$Species=="Callogorgia delta" & Impact$Visual_seep=="Non Seep"],)
+
+
+
+## Paramuricea B3 
+
+#mean and sd
+summary(Impact$Healthy[Impact$Species=="Paramuricea B3"])
+sd(Impact$Healthy[Impact$Species=="Paramuricea B3"])
+
+
+#Paramuricea B3 mean and sd for each seep and non seep
+summary(Impact$Healthy[Impact$Species=="Paramuricea B3" & Impact$Visual_seep=="Seep"],)
+summary(Impact$Healthy[Impact$Species=="Paramuricea B3" & Impact$Visual_seep=="Non Seep"],)
+
+```
+
+
+
+
+
+## GLMM 
+```{r}
+
+Impact$Year=factor(Impact$Year)
+
+
+
+###############
+
+H_mod=glmer(Healthy~ Species*Visual_seep +(1|Colony), data=Impact, family = "binomial")
+summary(H_mod)
+anova(H_mod)
+plot(H_mod)
+
+
+summary(aov(Healthy~ Species*Visual_seep, data=Impact))
+
+
+H_mod1=lmer(Healthy~ Species+Visual_seep +(1 | Colony), data=Impact)
+summary(H_mod1)
+anova(H_mod1)
+plot(H_mod1)
+
+H_mod2=glm(Healthy~ Species+Visual_seep, data=Impact, family = "binomial")
+summary(H_mod2)
+anova(H_mod2, test = "F")
+plot(H_mod2)
+
+
+anova(H_mod,H_mod1, H_mod2)
+# This mean that model (H-mod) is better beacuae AIC value was lowere than the second model. We will stick then with glmm
+
+
+############### To measure overdisparsion#####
+overdisp_fun <- function(model) {
+    rdf <- df.residual(model)
+    rp <- residuals(model,type="pearson")
+    Pearson.chisq <- sum(rp^2)
+    prat <- Pearson.chisq/rdf
+    pval <- pchisq(Pearson.chisq, df=rdf, lower.tail=FALSE)
+    c(chisq=Pearson.chisq,ratio=prat,rdf=rdf,p=pval)
+}
+
+overdisp_fun(H_mod) # overdisparsion was not significant and thus we do not need quasibinomial family
+
+########################
+
+
+##### Non healthy Category 
+
+#Not healthy
+NH_mod=glmer(Not_healthy~ Species*Visual_seep+(1|Colony), data=Impact, family = "binomial")
+summary(NH_mod)
+anova(NH_mod)
+
+summary(aov(Not_healthy~ Species+Visual_seep, data=Impact))
+
+
+# Colonized
+c_mod=glmer(Colonized~ Species*Visual_seep+(1|Colony), data=Impact, family = "binomial")
+summary(c_mod)
+anova(c_mod)
+
+summary(aov(Colonized~ Species+Visual_seep, data=Impact))
+
+
+
+#Not defined
+  MD_mod=glmer(Impact$Not_defined~ Species*Visual_seep+(1|Colony), data=Impact, family = "binomial")
+summary(MD_mod)
+anova(MD_mod)
+
+summary(aov(Not_defined~ Species*Visual_seep, data=Impact))
+
+#########
+
+#Hydroids
+Hy_mod=glmer(Hydroids~ Species+Visual_seep+Site+Year+(1|Colony), data=Impact, family = "binomial")
+summary(Hy_mod)
+anova(Hy_mod)
+plot(Hy_mod)
+
+
+#Zoanthids
+Z_mod=glmer(Zoanthids~ Species+Visual_seep+Site+Year+(1|Colony), data=Impact, family = "binomial")
+summary(Z_mod)
+anova(Z_mod)
+
+
+#Mudworms
+MW_mod=glmer(Mudworms~ Species+Visual_seep+Site+Year+(1|Colony), data=Impact)
+summary(MW_mod)
+anova(MW_mod)
+
+
+
+
+```
+
+
+
+#Callogorgia delta
+```{r}
+Callo_impact=filter(Impact, Species=="Callogorgia delta")
+
+
+
+callo_im_H=glmer(Healthy~ Site+Visual_seep+Year+(1|Colony), data=Callo_impact, family = "binomial")
+anova(callo_im_H)
+summary(callo_im_H)
+
+boxplot(Healthy~Site, data = Callo_impact)
+
+summary(Impact$Healthy[Impact$Species=="Callogorgia delta" & Impact$Site=="GC249"],)
+sd(Impact$Healthy[Impact$Species=="Callogorgia delta" & Impact$Site=="GC249"],)
+
+
+callo_im_NH=glmer(Not_healthy~ Site+Visual_seep+Year+(1|Colony), data=Callo_impact, family = "binomial")
+anova(callo_im_NH)
+summary(callo_im_H)
+
+
+
+callo_im_C=glmer(Colonized~ Site+Visual_seep+Year+(1|Colony), data=Callo_impact, family = "binomial")
+anova(callo_im_C)
+summary(callo_im_C)
+
+```
+
+
+##d13c
+
+```{r}
+mod_C13_callo=lm(d13c~Healthy, data = Callo_impact)
+summary(mod_C13_callo)
+
+```
+
+
+```{r}
+c_d13c=ggplot(Callo_impact, aes(d13c, Healthy))+geom_point(size=4, alpha=0.5)+geom_smooth(method = "lm")+theme_bw()+labs(title="Adjusted R-squared=0.18, p=0.002", y=" Healthy proportion (%)", x="d13C")
+
+c_d13c
+```
+
+
+
+
+
+
+## d15n
+
+```{r}
+mod_N15_callo=lm(d15n~Healthy, data = Callo_impact)
+summary(mod_N15_callo)
+
+```
+
+
+```{r}
+c_d15n=ggplot(Callo_impact, aes(d15n, Healthy))+geom_point(size=4, alpha=0.5)+geom_smooth(method = "lm")+theme_bw()+labs(title="Adjusted R-squared=0.07357, p=0.04", y=" Healthy proportion (%)", x="d15N")
+
+c_d15n
+```
+
+
+
+
+#Paramuricea B3
+
+```{r}
+para_impact=filter(Impact, Species=="Paramuricea B3")
+
+
+para_im_H=glmer(Healthy~ Visual_seep+Year+(1|Colony), data=para_impact, family = "binomial")
+anova(para_im_H)
+summary(para_im_H)
+
+
+para_im_NH=glmer(para_impact$Not_healthy~ Visual_seep+Year+(1|Colony), data=para_impact, family = "binomial")
+anova(para_im_NH)
+summary(para_im_NH)
+
+
+para_im_C=glmer(Colonized~ Visual_seep+Year+(1|Colony), data=para_impact, family = "binomial")
+anova(para_im_C)
+summary(para_im_C)
+```
+
+
+
+##d13c
+```{r}
+
+mod_C13_para=lm(d13c~Healthy, data = para_impact)
+summary(mod_C13_para)
+```
+
+
+
+```{r}
+p_d13c=ggplot(para_impact, aes(d13c, Healthy))+geom_point(size=4, alpha=0.5)+geom_smooth(method = "lm")+theme_bw()+labs(title="Adjusted R-squared= 0.009, p=0.3", y=" Healthy proportion (%)", x="d13C")
+
+p_d13c
+```
+
+
+
+
+##d15N
+```{r}
+
+mod_N15_para=lm(d15n~Healthy, data = para_impact)
+summary(mod_N15_para)
+```
+
+
+
+```{r}
+p_d15n=ggplot(para_impact, aes(d15n, Healthy))+geom_point(size=4, alpha=0.5)+geom_smooth(method = "lm")+theme_bw()+labs(title="Adjusted R-squared= -0.05, p=0.6", y=" Healthy proportion (%)", x="d15N")
+
+p_d15n
+```
+
+
+```{r}
+
+grid.arrange(c_d13c,c_d15n, p_d13c, p_d15n, nrow = 2)
+
+
+```
+
