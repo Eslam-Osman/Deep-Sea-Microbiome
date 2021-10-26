@@ -1,0 +1,131 @@
+---
+title: "Stable Isotope"
+author: "E.O. Osman"
+date: "7/19/2020"
+output: html_document
+---
+```{r}
+require(readxl)       #import excel files
+require(ggplot2)      #plots and graphics
+require(tidyr)        #data handling
+require(dplyr)        #data handling
+```
+
+
+
+```{r}
+## to import excel file
+df <- read_excel("D:/Deep Sea Coral Project/16S Data/Seep_Data/Seep R Project/Seep project/Seep Microbiome_R code/Seep project_final/Deep-Sea-Microbiome/Data/df_final.xlsx")
+
+## to remove seawater samples 
+df_isotope=filter(df, !Species=="Seawater")
+
+```
+
+
+#d13C analysis
+
+##To Plot the the range of d13c in seep vs non seep samples
+```{r}
+col_seep=c('#fdc086','#35978f')
+
+
+ggplot(df_isotope, aes(Species, d13c, fill=Visual_seep))+
+  geom_boxplot(outlier.shape = NA)+
+  theme_bw()+
+  scale_fill_manual(values = col_seep)+
+  geom_point(size=5, colour="black", alpha=0.5, pch = 21, position = position_jitterdodge(0.2))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+```
+
+
+
+
+##Generalized Linear Model to test the differences between stable isotope value in each species include sediment
+
+##d13C
+```{r}
+##Callogorgia_delta
+df_callo=filter(df, Species=="Callogorgia_delta")
+summary(glm(d13c~Visual_seep, data =df_callo))
+
+
+##Paramuricea_sp._B3
+df_para=filter(df, Species=="Paramuricea_sp._B3")
+summary(glm(d13c~Visual_seep, data =df_para))
+
+
+##Sediment
+df_sedi=filter(df, Species=="Sediment")
+summary(glm(d13c~Visual_seep, data =df_sedi))
+
+
+```
+
+
+
+
+#d15n Analysis
+
+```{r}
+ggplot(df_isotope, aes(Visual_seep, d15n, fill=Visual_seep))+
+  geom_boxplot()+
+  facet_grid(.~Species, scales = "free")+
+  theme_bw()+
+  scale_fill_manual(values = col_seep)+
+  geom_jitter(shape=16,alpha=0.3,size=5, position=position_jitter(0.2))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+```
+
+
+
+##d15N analysis
+```{r}
+summary(glm(d15n~Visual_seep, data =df_callo))
+
+
+
+summary(glm(d15n~Visual_seep, data =df_para))
+
+
+
+summary(glm(d15n~Visual_seep, data =df_sedi))
+```
+
+
+
+#d13c vs d15n ratio 
+
+##d13C vs d15N ratio sorted by sites
+
+
+```{r}
+## Sites
+
+Site_col=c('#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00')
+
+
+ggplot(df_isotope, aes(d13c, d15n,color=Site))+
+  geom_point(size=4, alpha=0.7)+
+  theme_bw()+
+  scale_colour_manual(values = Site_col)+
+  geom_smooth(method = "lm", se = FALSE)+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+```
+
+
+##d13c vs d15n ratio sorted by habitats
+```{r}
+Sp_col=c('#d7191c','#fdae61',"#636363")
+
+
+
+ggplot(df_isotope, aes(d13c, d15n,color=Species))+
+  geom_point(size=4, alpha=0.7)+
+  theme_bw()+
+  scale_colour_manual(values = Sp_col)+
+  geom_smooth(method = "lm", se = FALSE)+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+```
+
